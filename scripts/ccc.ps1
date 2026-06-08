@@ -45,12 +45,16 @@ if ($Command -eq "init") {
     "commands": {
         "db-update": "dotnet ef database update --context $DbContext -p Models -s Api -- --environment $env",
         "db-migration": "dotnet ef migrations add $MigrationName --context $DbContext -p Models -s Api",
-        "git-reset": "git reset HEAD~1"
+        "git-reset": "git reset HEAD~1",
+        "git-exclude": "Add-Content .git\\info\\exclude \"`ncmdrouter.json\""
     }
 }
 '@
     Set-Content $configPath $template -Encoding UTF8
     Write-Host "Created cmdrouter.json"
+    if (Test-Path (Join-Path (Get-Location) ".git")) {
+        Write-Host "Tip: git detected. Use 'ccc git-exclude' to exclude cmdrouter.json from this repo."
+    }
     exit 0
 }
 
