@@ -39,14 +39,23 @@ if ($Command -eq "init") {
     $template = @'
 {
     "params": {
+        "ENV_LOCAL": "",
         "DbContext": "",
-        "env": "Development"
+        "EF_MIGRATION_CSPROJ_PATH":"",
+        "EF_STARTUP_PROJECT_PATH" : "",
+        "DefaultMigrationName" : ""
     },
     "commands": {
-        "db-update": "dotnet ef database update --context $DbContext -p Models -s Api -- --environment $env",
-        "db-migration": "dotnet ef migrations add $MigrationName --context $DbContext -p Models -s Api",
-        "git-reset": "git reset HEAD~1",
-        "git-exclude": "Add-Content .git\\info\\exclude \"`ncccrouter.json\""
+        "hide": "Add-Content .git\\info\\exclude \"`ncccrouter.json\"",
+
+        "rebase": "git pull --rebase",
+        "git-uncommit": "git reset HEAD~1",
+        "git-exclude": "Add-Content .git\\info\\exclude",
+
+        "db-update": "dotnet run --project $EF_STARTUP_PROJECT_PATH -- --settings-base-path $EF_STARTUP_PROJECT_PATH --environment $ENV_LOCAL",
+        "db-reset":"dotnet ef migrations remove --context $DbContext -p $EF_MIGRATION_CSPROJ_PATH -s $EF_STARTUP_PROJECT_PATH -- --environment $ENV_LOCAL",
+        "ef-list": "dotnet ef migrations list --context $DbContext -p $EF_MIGRATION_CSPROJ_PATH -s $EF_STARTUP_PROJECT_PATH",
+        "ef-add": "dotnet ef migrations add $DefaultMigrationName --context $DbContext -p $EF_MIGRATION_CSPROJ_PATH -s $EF_STARTUP_PROJECT_PATH -o Migrations"
     }
 }
 '@
