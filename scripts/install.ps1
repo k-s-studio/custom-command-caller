@@ -9,6 +9,13 @@ if (-not (Test-Path $installDir)) {
 # copy ccc.ps1
 Copy-Item "$scriptDir\ccc.ps1" "$installDir\ccc.ps1" -Force
 
+# copy the syntax highlighting vsix (newest version wins, renamed without version suffix)
+$vsix = Get-ChildItem "$scriptDir\..\editor\vscode-cccrouter-syntax" -Filter "cccrouter-syntax-*.vsix" -ErrorAction SilentlyContinue |
+    Sort-Object Name -Descending | Select-Object -First 1
+if ($vsix) {
+    Copy-Item $vsix.FullName "$installDir\cccrouter-syntax.vsix" -Force
+}
+
 # create ccc.cmd wrapper (allows calling 'ccc' from any terminal)
 $cmdWrapper = '@echo off
 powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0ccc.ps1" %*'

@@ -1,0 +1,86 @@
+{
+    "name": "CCC Router Config",
+    "scopeName": "source.cccrouter",
+    "patterns": [{ "include": "#value" }],
+    "repository": {
+        "value": {
+            "patterns": [
+                { "include": "#object" },
+                { "include": "#array" },
+                { "include": "#string" },
+                { "include": "#number" },
+                { "include": "#constant" }
+            ]
+        },
+        "object": {
+            "name": "meta.structure.dictionary.json",
+            "begin": "\\{",
+            "beginCaptures": { "0": { "name": "punctuation.definition.dictionary.begin.json" } },
+            "end": "\\}",
+            "endCaptures": { "0": { "name": "punctuation.definition.dictionary.end.json" } },
+            "patterns": [
+                { "include": "#key" },
+                { "match": ":", "name": "punctuation.separator.dictionary.key-value.json" },
+                { "match": ",", "name": "punctuation.separator.dictionary.pair.json" },
+                { "include": "#value" }
+            ]
+        },
+        "array": {
+            "name": "meta.structure.array.json",
+            "begin": "\\[",
+            "beginCaptures": { "0": { "name": "punctuation.definition.array.begin.json" } },
+            "end": "\\]",
+            "endCaptures": { "0": { "name": "punctuation.definition.array.end.json" } },
+            "patterns": [
+                { "include": "#value" },
+                { "match": ",", "name": "punctuation.separator.array.json" }
+            ]
+        },
+        "key": {
+            "comment": "object key, e.g. \"db-update\" or \"EF_STARTUP_PROJECT_PATH\" — colored separately from string values",
+            "match": "\"(?:[^\"\\\\]|\\\\.)*\"(?=\\s*:)",
+            "name": "string.quoted.double.json support.type.property-name.json"
+        },
+        "string": {
+            "name": "string.quoted.double.json",
+            "begin": "\"",
+            "beginCaptures": { "0": { "name": "punctuation.definition.string.begin.json" } },
+            "end": "\"",
+            "endCaptures": { "0": { "name": "punctuation.definition.string.end.json" } },
+            "patterns": [
+                {
+                    "match": "\\\\(?:[\"\\\\/bfnrt`]|u[0-9a-fA-F]{4})",
+                    "name": "constant.character.escape.json"
+                },
+                {
+                    "comment": "cccrouter named placeholder, e.g. ${EF_STARTUP_PROJECT_PATH}",
+                    "match": "\\$\\{[A-Za-z_]\\w*\\}",
+                    "name": "variable.parameter.placeholder.cccrouter"
+                },
+                {
+                    "comment": "cccrouter named placeholder, e.g. $EF_STARTUP_PROJECT_PATH",
+                    "match": "\\$[A-Za-z_]\\w*",
+                    "name": "variable.parameter.placeholder.cccrouter"
+                },
+                {
+                    "comment": "cccrouter positional placeholder with default, e.g. {0=migrations}",
+                    "match": "\\{\\d+=[^{}]*\\}",
+                    "name": "variable.parameter.positional.cccrouter"
+                },
+                {
+                    "comment": "cccrouter positional placeholder, e.g. {0}",
+                    "match": "\\{\\d+\\}",
+                    "name": "variable.parameter.positional.cccrouter"
+                }
+            ]
+        },
+        "number": {
+            "name": "constant.numeric.json",
+            "match": "-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?"
+        },
+        "constant": {
+            "name": "constant.language.json",
+            "match": "\\b(?:true|false|null)\\b"
+        }
+    }
+}
