@@ -5,18 +5,18 @@ param(
     [string[]]$ExtraArgs
 )
 
-$configFileName = "cmdrouter.json"
+$configFileName = "cccrouter.json"
 
 function Get-Config {
     $configPath = Join-Path (Get-Location) $configFileName
     if (-not (Test-Path $configPath)) {
-        Write-Host "cmdrouter.json not found. Run 'ccc init' to create one."
+        Write-Host "cccrouter.json not found. Run 'ccc init' to create one."
         exit 1
     }
     try {
         return Get-Content $configPath -Raw | ConvertFrom-Json
     } catch {
-        Write-Host "Invalid cmdrouter.json: $_"
+        Write-Host "Invalid cccrouter.json: $_"
         exit 1
     }
 }
@@ -24,8 +24,8 @@ function Get-Config {
 # no command
 if (-not $Command) {
     Write-Host "Usage: ccc <command> [args]"
-    Write-Host "       ccc init      create cmdrouter.json template in current directory"
-    Write-Host "       ccc verify    verify all parameters in cmdrouter.json are configured"
+    Write-Host "       ccc init      create cccrouter.json template in current directory"
+    Write-Host "       ccc verify    verify all parameters in cccrouter.json are configured"
     exit 0
 }
 
@@ -33,7 +33,7 @@ if (-not $Command) {
 if ($Command -eq "init") {
     $configPath = Join-Path (Get-Location) $configFileName
     if (Test-Path $configPath) {
-        Write-Host "cmdrouter.json already exists."
+        Write-Host "cccrouter.json already exists."
         exit 1
     }
     $template = @'
@@ -46,14 +46,14 @@ if ($Command -eq "init") {
         "db-update": "dotnet ef database update --context $DbContext -p Models -s Api -- --environment $env",
         "db-migration": "dotnet ef migrations add $MigrationName --context $DbContext -p Models -s Api",
         "git-reset": "git reset HEAD~1",
-        "git-exclude": "Add-Content .git\\info\\exclude \"`ncmdrouter.json\""
+        "git-exclude": "Add-Content .git\\info\\exclude \"`ncccrouter.json\""
     }
 }
 '@
     Set-Content $configPath $template -Encoding UTF8
-    Write-Host "Created cmdrouter.json"
+    Write-Host "Created cccrouter.json"
     if (Test-Path (Join-Path (Get-Location) ".git")) {
-        Write-Host "Tip: git detected. Use 'ccc git-exclude' to exclude cmdrouter.json from this repo."
+        Write-Host "Tip: git detected. Use 'ccc git-exclude' to exclude cccrouter.json from this repo."
     }
     exit 0
 }
