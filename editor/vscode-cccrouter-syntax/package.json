@@ -2,7 +2,7 @@
     "name": "cccrouter-syntax",
     "displayName": "CCC Router Syntax",
     "description": "Syntax highlighting for cccrouter.json that highlights $PARAM placeholders inside command templates",
-    "version": "0.0.4",
+    "version": "0.0.1",
     "engines": {
         "vscode": "^1.70.0"
     },
@@ -21,6 +21,20 @@
                 "scopeName": "source.cccrouter",
                 "path": "./syntaxes/cccrouter.tmLanguage.json"
             }
-        ]
+        ],
+        "configurationDefaults": {
+            "editor.tokenColorCustomizations": {
+                "textMateRules": [
+                    {
+                        "scope": "variable.parameter.placeholder.cccrouter",
+                        "settings": { "foreground": "#11bee9", "fontStyle": "bold" }
+                    },
+                    {
+                        "scope": "variable.parameter.positional.cccrouter",
+                        "settings": { "foreground": "#ccc059", "fontStyle": "bold" }
+                    }
+                ]
+            }
+        }
     }
 }
