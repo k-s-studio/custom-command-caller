@@ -1,0 +1,67 @@
+name: Auto merge dev into main
+
+on:
+  push:
+    branches:
+      - dev
+
+jobs:
+  merge-to-main:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Merge dev and restore excluded files
+        run: |
+          MAIN_HEAD=$(git rev-parse HEAD)
+
+          git fetch origin dev
+          git merge origin/dev --no-ff -m "chore: auto merge dev into main [skip ci]"
+
+          # Restore files listed in .dev-files back to their main version
+          if [ -f .dev-files ]; then
+            while IFS= read -r pattern || [ -n "$pattern" ]; do
+              # Strip Windows CRLF and skip comments / blank lines
+              pattern="${pattern%$'\r'}"
+              [[ "$pattern" =~ ^[[:space:]]*# || -z "${pattern// }" ]] && continue
+
+              # Directory pattern (trailing /): restore all tracked files under it
+              if [[ "$pattern" == */ ]]; then
+                mapfile -t files < <(git ls-tree -r --name-only "$MAIN_HEAD" -- "$pattern" 2>/dev/null)
+                for f in "${files[@]}"; do
+                  echo "Restoring $f"
+                  git checkout "$MAIN_HEAD" -- "$f"
+                done
+              else
+                # File may not exist in main (dev-only) — just remove it from the merge
+                if git ls-tree --name-only "$MAIN_HEAD" -- "$pattern" | grep -q .; then
+                  echo "Restoring $pattern"
+                  git checkout "$MAIN_HEAD" -- "$pattern"
+                else
+                  echo "Removing dev-only file: $pattern"
+                  git rm --cached -r "$pattern" 2>/dev/null || true
+                  rm -rf "$pattern"
+                fi
+              fi
+            done < .dev-files
+
+            # Amend the merge commit to include the restorations
+            if ! git diff --cached --quiet; then
+              git commit --amend --no-edit
+            fi
+          fi
+
+          git push origin main

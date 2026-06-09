@@ -1,0 +1,7 @@
+# Files listed here will NOT be merged into main when dev is pushed.
+# Supports exact file paths and directory paths (e.g. dir/).
+# Lines starting with # are comments. Blank lines are ignored.
+
+cccrouter.json
+.github
+.dev-files
