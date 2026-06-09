@@ -1,0 +1,12 @@
+﻿{
+    "params": {
+        "EXTS_DIR" : "editor/vscode-cccrouter-syntax"
+    },
+    "commands": {
+        "hide": "Add-Content .git\\info\\exclude \"`ncccrouter.json\"",
+        "git-uncommit": "git reset HEAD~1 {0=--soft}",
+        "git-exclude": "Add-Content .git\\info\\exclude",
+        "theme-update"  : "Push-Location ${EXTS_DIR}; npx --yes @vscode/vsce package; Pop-Location; code --install-extension ${EXTS_DIR}/cccrouter-syntax-0.0.1.vsix",
+        "echo": "Write-Host {0=1}"
+    }
+}
