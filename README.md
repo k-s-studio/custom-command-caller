@@ -52,5 +52,7 @@ Step 4 - 回到你的專案目錄跑 `ccc init`。
 - 使用 `ccc` 可以在 commands 尾加上不限長度的參數 它們依數字順序填入被動placeholder {0}, {1}, {2}, ...，超過 placeholder 數量的參數仍會被使用，接在最尾。
 
 ### 未來計畫
+- 巢狀指令分流模式
+- 直接用 powershell style 渲染 cccrouter value 最後加上 placeholder 醒目
 - 調整 readme，作為完整規格文件
 - 有個 prompt 讓 agent 幫我抓需要的值，再有個 skill 告訴 agent 如何使用 router

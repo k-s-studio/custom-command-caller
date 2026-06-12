@@ -22,7 +22,7 @@ function Get-Config {
 }
 
 function Get-UsedParams($text) {
-    $found = [regex]::Matches($text, '\$\{?([A-Za-z_]\w*)\}?')
+    $found = [regex]::Matches($text, '\$\{([A-Za-z_]\w*)\}')
     return ($found | ForEach-Object { $_.Groups[1].Value } | Select-Object -Unique)
 }
 

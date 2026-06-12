@@ -5,6 +5,7 @@
     },
     "commands": {
         "hide": "Add-Content .git\\info\\exclude \"`ncccrouter.json\"",
+        "profile":"notepad $PROFILE.CurrentUserAllHosts",
         "git-uncommit": "git reset HEAD~1 {0=--soft}",
         "git-exclude": "Add-Content .git\\info\\exclude",
         "ext-update"  : "Push-Location ${EXTS_DIR}; npx --yes @vscode/vsce package; Pop-Location; code --install-extension ${EXTS_DIR}/cccrouter-syntax-${EXTS_VERSION}.vsix",

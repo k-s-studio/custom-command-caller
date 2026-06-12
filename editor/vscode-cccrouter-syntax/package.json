@@ -7,26 +7,36 @@
         "vscode": "^1.70.0"
     },
     "categories": ["Programming Languages"],
+    "main": "./extension.js",
+    "activationEvents": [
+        "onLanguage:json",
+        "onLanguage:jsonc"
+    ],
     "contributes": {
-        "grammars": [
+        "semanticTokenTypes": [
             {
-                "scopeName": "source.cccrouter.injection",
-                "path": "./syntaxes/cccrouter.tmLanguage.json",
-                "injectTo": ["source.json"]
+                "id": "cccPlaceholder",
+                "description": "cccrouter ${VAR} / $VAR placeholder"
+            },
+            {
+                "id": "cccPositional",
+                "description": "cccrouter {n} / {n=default} positional argument"
+            }
+        ],
+        "semanticTokenScopes": [
+            {
+                "scopes": {
+                    "cccPlaceholder": ["variable.parameter.placeholder.cccrouter"],
+                    "cccPositional": ["variable.parameter.positional.cccrouter"]
+                }
             }
         ],
         "configurationDefaults": {
-            "editor.tokenColorCustomizations": {
-                "textMateRules": [
-                    {
-                        "scope": "variable.parameter.placeholder.cccrouter",
-                        "settings": { "foreground": "#11bee9", "fontStyle": "bold" }
-                    },
-                    {
-                        "scope": "variable.parameter.positional.cccrouter",
-                        "settings": { "foreground": "#ccc059", "fontStyle": "bold" }
-                    }
-                ]
+            "editor.semanticTokenColorCustomizations": {
+                "rules": {
+                    "cccPlaceholder": { "foreground": "#11bee9", "fontStyle": "bold" },
+                    "cccPositional": { "foreground": "#ccc059", "fontStyle": "bold" }
+                }
             }
         }
     }
