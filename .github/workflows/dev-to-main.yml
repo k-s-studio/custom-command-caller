@@ -29,39 +29,51 @@ jobs:
           MAIN_HEAD=$(git rev-parse HEAD)
 
           git fetch origin dev
-          git merge origin/dev --no-ff -m "chore: auto merge dev into main [skip ci]"
 
-          # Restore files listed in .dev-files back to their main version
-          if [ -f .dev-files ]; then
+          # Read the exclusion list from dev BEFORE merging. It must come from dev (not
+          # the working tree): .dev-files is itself excluded, so it does not exist on
+          # main and the merge may delete it from the tree — reading it afterward would
+          # silently skip all exclusions.
+          DEV_FILES_LIST="$(git show origin/dev:.dev-files 2>/dev/null || true)"
+
+          # Merge without committing so the excluded files never get merged in.
+          # Conflicts (e.g. a file modified in dev but deleted in main) are tolerated
+          # here and resolved below — for excluded files by forcing main's state, and
+          # for everything else by failing loudly.
+          git merge --no-ff --no-commit origin/dev || true
+
+          # Force every excluded path back to main's state, regardless of what the
+          # merge produced (restore main's version, or drop dev-only paths).
+          if [ -n "$DEV_FILES_LIST" ]; then
             while IFS= read -r pattern || [ -n "$pattern" ]; do
               # Strip Windows CRLF and skip comments / blank lines
               pattern="${pattern%$'\r'}"
               [[ "$pattern" =~ ^[[:space:]]*# || -z "${pattern// }" ]] && continue
 
-              # Directory pattern (trailing /): restore all tracked files under it
-              if [[ "$pattern" == */ ]]; then
-                mapfile -t files < <(git ls-tree -r --name-only "$MAIN_HEAD" -- "$pattern" 2>/dev/null)
-                for f in "${files[@]}"; do
-                  echo "Restoring $f"
-                  git checkout "$MAIN_HEAD" -- "$f"
-                done
+              if git ls-tree -r --name-only "$MAIN_HEAD" -- "$pattern" | grep -q .; then
+                # Exists in main → discard the merge result and restore main's version
+                echo "Restoring $pattern from main"
+                rm -rf -- "$pattern"
+                git checkout "$MAIN_HEAD" -- "$pattern"
               else
-                # File may not exist in main (dev-only) — just remove it from the merge
-                if git ls-tree --name-only "$MAIN_HEAD" -- "$pattern" | grep -q .; then
-                  echo "Restoring $pattern"
-                  git checkout "$MAIN_HEAD" -- "$pattern"
-                else
-                  echo "Removing dev-only file: $pattern"
-                  git rm --cached -r "$pattern" 2>/dev/null || true
-                  rm -rf "$pattern"
-                fi
+                # Dev-only path → keep it out of main entirely
+                echo "Removing dev-only path: $pattern"
+                git rm -rf --cached --ignore-unmatch -- "$pattern" >/dev/null 2>&1 || true
+                rm -rf -- "$pattern"
               fi
-            done < .dev-files
-
-            # Amend the merge commit to include the restorations
-            if ! git diff --cached --quiet; then
-              git commit --amend --no-edit
-            fi
+            done <<< "$DEV_FILES_LIST"
           fi
 
-          git push origin main
+          # Any unmerged entries left now are real conflicts in non-excluded files.
+          if git ls-files --unmerged | grep -q .; then
+            echo "::error::Unexpected merge conflicts remain in non-excluded files:"
+            git ls-files --unmerged
+            exit 1
+          fi
+
+          if git rev-parse -q --verify MERGE_HEAD >/dev/null 2>&1; then
+            git commit -m "chore: auto merge dev into main [skip ci]"
+            git push origin main
+          else
+            echo "Already up to date; nothing to merge."
+          fi
