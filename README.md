@@ -31,16 +31,27 @@ ccc git-exclude {file} => Add-Content .git/info/exclude '`n{file}'
 ### Quick Start
 Step 1 - Clone the repo. 
 Step 2 - 在 ccc repo 目錄使用 `ccc install` 或者 `.\ccc install` 註冊指令至系統層級。
-Step 3 - 如果你使用 vscode，考慮安裝專用於美化 cccrouter.json 的 highlighter。
   ```
-  ccc highlighter install --vscode
+  ccc install              # 只安裝 ccc
+  ccc install --ext --vscode   # 一併安裝 vscode highlighter 插件
   ```
-Step 4 - 回到你的專案目錄跑 `ccc init`。
+  `--ext --vscode` 會從 GitHub Release 下載最新發佈的 `.vsix` 安裝（不需要 Node）。
+  如果 Step 2 沒加 `--ext`，之後再跑一次 `ccc install --ext --vscode` 即可補裝插件。
+Step 3 - 回到你的專案目錄跑 `ccc init`。
 
 ### 美化器
 `editor\vscode-cccrouter-syntax` 是一個用於美化 cccrouter.json 編輯器的 vscode 插件，讓字串裡的placeholder: `${var}`, `$var`, `{n}`, `{m=default}` 變得醒目。
 
-調整 `editor\vscode-cccrouter-syntax\syntaxes\cccrouter.tmLanguage.json` 成為你的 own-style。最後再執行一次 `ccc highlighter install --vscode` 套用變更。
+調整 `editor\vscode-cccrouter-syntax\syntaxes\cccrouter.tmLanguage.json` 成為你的 own-style。因為預設安裝是抓 Release 的版本，套用本機改動要從原始碼建置（需要 Node）：
+
+```
+ccc install --ext --vscode --local
+```
+
+#### 發佈新版（維護者）
+1. 在 `editor\vscode-cccrouter-syntax\package.json` 把 `version` 加上去。
+2. 到 GitHub 的 **Actions → Release highlighter extension**，在 `dev` 分支按 **Run workflow**。
+3. CI 會用 `vsce package` 打包，並建立對應 `vX.Y.Z` 的 Release 掛上 `.vsix`。之後使用者 `ccc install --ext --vscode` 就會抓到新版。
 
 ### 環境需求
 - windows
@@ -52,5 +63,7 @@ Step 4 - 回到你的專案目錄跑 `ccc init`。
 - 使用 `ccc` 可以在 commands 尾加上不限長度的參數 它們依數字順序填入被動placeholder {0}, {1}, {2}, ...，超過 placeholder 數量的參數仍會被使用，接在最尾。
 
 ### 未來計畫
+- 巢狀指令分流模式
+- 直接用 powershell style 渲染 cccrouter value 最後加上 placeholder 醒目
 - 調整 readme，作為完整規格文件
 - 有個 prompt 讓 agent 幫我抓需要的值，再有個 skill 告訴 agent 如何使用 router

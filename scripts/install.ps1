@@ -1,3 +1,9 @@
+param(
+    # extra flags: --ext --vscode [--local] to also install the VS Code highlighter
+    [Parameter(ValueFromRemainingArguments=$true)]
+    [string[]]$Rest
+)
+
 $installDir = "$env:USERPROFILE\.ccc"
 $scriptDir  = $PSScriptRoot
 
@@ -8,13 +14,6 @@ if (-not (Test-Path $installDir)) {
 
 # copy ccc.ps1
 Copy-Item "$scriptDir\ccc.ps1" "$installDir\ccc.ps1" -Force
-
-# copy the syntax highlighting vsix (newest version wins, renamed without version suffix)
-$vsix = Get-ChildItem "$scriptDir\..\editor\vscode-cccrouter-syntax" -Filter "cccrouter-syntax-*.vsix" -ErrorAction SilentlyContinue |
-    Sort-Object Name -Descending | Select-Object -First 1
-if ($vsix) {
-    Copy-Item $vsix.FullName "$installDir\cccrouter-syntax.vsix" -Force
-}
 
 # create ccc.cmd wrapper (allows calling 'ccc' from any terminal)
 $cmdWrapper = '@echo off
@@ -31,3 +30,14 @@ if ($userPath -notlike "*$installDir*") {
 }
 
 Write-Host "Installed. Restart your terminal, then use 'ccc' in any project directory."
+
+# optionally install the VS Code highlighter extension in the same run:
+#   ccc install --ext --vscode [--local]
+if ($Rest -contains "--ext") {
+    Write-Host ""
+    Write-Host "Installing highlighter extension ..."
+    $highlighterArgs = @("install")
+    if ($Rest -contains "--vscode") { $highlighterArgs += "--vscode" }
+    if ($Rest -contains "--local")  { $highlighterArgs += "--local" }
+    & "$scriptDir\install-highlighter.ps1" @highlighterArgs
+}

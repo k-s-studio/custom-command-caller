@@ -1,0 +1,5 @@
+# Built VS Code extension package — distributed via GitHub Releases, not git.
+editor/vscode-cccrouter-syntax/*.vsix
+
+# Node tooling used only to build the extension
+editor/vscode-cccrouter-syntax/node_modules/
