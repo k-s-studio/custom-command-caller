@@ -53,12 +53,41 @@ else {
     [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
     $headers = @{ 'User-Agent' = 'ccc-highlighter'; 'Accept' = 'application/vnd.github+json' }
 
+    function Invoke-GitHubApi([string]$url) {
+        # GitHub's API edge occasionally returns transient 5xx (e.g. /releases/latest
+        # 504s) — retry a few times before giving up.
+        for ($attempt = 1; $attempt -le 3; $attempt++) {
+            try {
+                return Invoke-RestMethod -Uri $url -Headers $headers -ErrorAction Stop
+            } catch {
+                $status = 0
+                if ($_.Exception.Response) { $status = [int]$_.Exception.Response.StatusCode }
+                if ($attempt -lt 3 -and ($status -eq 0 -or $status -ge 500)) {
+                    Start-Sleep -Seconds $attempt
+                    continue
+                }
+                throw
+            }
+        }
+    }
+
     Write-Host "Fetching latest release from $Repo ..."
     try {
-        $release = Invoke-RestMethod -Uri "https://api.github.com/repos/$Repo/releases/latest" -Headers $headers -ErrorAction Stop
+        $release = Invoke-GitHubApi "https://api.github.com/repos/$Repo/releases/latest"
     } catch {
-        Write-Host "Failed to query GitHub releases: $($_.Exception.Message)"
-        Write-Host "If you customized the syntax locally, install from source with: ccc install --ext --vscode --local"
+        # /releases/latest is flaky on GitHub's edge; the list endpoint is more reliable.
+        Write-Host "  /releases/latest unavailable; falling back to releases list ..."
+        try {
+            $release = Invoke-GitHubApi "https://api.github.com/repos/$Repo/releases" |
+                Where-Object { -not $_.draft -and -not $_.prerelease } | Select-Object -First 1
+        } catch {
+            Write-Host "Failed to query GitHub releases: $($_.Exception.Message)"
+            Write-Host "If you customized the syntax locally, install from source with: ccc install --ext --vscode --local"
+            exit 1
+        }
+    }
+    if (-not $release) {
+        Write-Host "No published release found for $Repo."
         exit 1
     }
 
