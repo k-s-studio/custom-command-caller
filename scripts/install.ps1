@@ -7,7 +7,10 @@ param(
 $installDir = "$env:USERPROFILE\.ccc"
 $scriptDir  = $PSScriptRoot
 
-# create install directory
+# create install directory (or upgrade an existing install in place)
+if (Test-Path (Join-Path $installDir "ccc.ps1")) {
+    Write-Host "Existing install found at $installDir - upgrading in place (overwrites ccc.ps1, adds ccc-router)."
+}
 if (-not (Test-Path $installDir)) {
     New-Item -ItemType Directory -Path $installDir | Out-Null
 }
