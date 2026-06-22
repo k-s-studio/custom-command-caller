@@ -5,7 +5,10 @@ const LEGEND = new vscode.SemanticTokensLegend(TOKEN_TYPES);
 const SELECTOR = { pattern: '**/cccrouter.json' };
 
 const PLACEHOLDER_RE = /\$\{[A-Za-z_]\w*\}|\$[A-Za-z_]\w*/g;
-const POSITIONAL_RE = /\{\d+(?:=[^{}]*)?\}/g;
+// positional marker ^n, both in a key signature ("uncommit ^0=1 ^1=--soft") and
+// in a value ("git reset HEAD~^0 ^1"). only the ^n marker is colored; any $VAR in
+// a default (^1=$ENVIRONMENT) is left to PLACEHOLDER_RE so the two never overlap.
+const POSITIONAL_RE = /\^\d+/g;
 
 function collectMatches(out, text, regex, tokenType) {
     regex.lastIndex = 0;
