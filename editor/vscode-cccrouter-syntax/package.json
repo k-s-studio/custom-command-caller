@@ -2,7 +2,7 @@
     "name": "cccrouter-syntax",
     "displayName": "CCC Router Syntax",
     "description": "Syntax highlighting for cccrouter.json that highlights $PARAM placeholders inside command templates",
-    "version": "0.0.7",
+    "version": "0.0.8",
     "engines": {
         "vscode": "^1.70.0"
     },
@@ -20,14 +20,19 @@
             },
             {
                 "id": "cccPositional",
-                "description": "cccrouter {n} / {n=default} positional argument"
+                "description": "cccrouter ^n positional argument marker"
+            },
+            {
+                "id": "cccDefault",
+                "description": "cccrouter ^n=default positional default value"
             }
         ],
         "semanticTokenScopes": [
             {
                 "scopes": {
                     "cccPlaceholder": ["variable.parameter.placeholder.cccrouter"],
-                    "cccPositional": ["variable.parameter.positional.cccrouter"]
+                    "cccPositional": ["variable.parameter.positional.cccrouter"],
+                    "cccDefault": ["variable.parameter.default.cccrouter"]
                 }
             }
         ],
@@ -35,7 +40,8 @@
             "editor.semanticTokenColorCustomizations": {
                 "rules": {
                     "cccPlaceholder": { "foreground": "#11bee9", "fontStyle": "bold" },
-                    "cccPositional": { "foreground": "#ccc059", "fontStyle": "bold" }
+                    "cccPositional": { "foreground": "#ccc059", "fontStyle": "bold" },
+                    "cccDefault": { "foreground": "#d4ce95", "fontStyle": "bold" }
                 }
             }
         }
