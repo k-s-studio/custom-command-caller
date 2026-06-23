@@ -9,3 +9,4 @@ cccrouter.json
 .github/workflows/dev-to-main.yml
 .dev-files
 CLAUDE.md
+.vscode/*

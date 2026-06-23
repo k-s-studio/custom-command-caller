@@ -1,0 +1,13 @@
+{
+    // cccrouter.json 美化器顏色。這裡的設定會覆蓋擴充套件 package.json 內建的
+    // configurationDefaults，改完只要「Developer: Reload Window」即可生效，
+    // 不需要重新打包 vsix、也不需要 Node。要換色直接改 foreground 就好。
+    "editor.semanticHighlighting.enabled": true,
+    "editor.semanticTokenColorCustomizations": {
+        "rules": {
+            "cccPlaceholder": { "foreground": "#11bee9", "fontStyle": "bold" },
+            "cccPositional": { "foreground": "#ccc059", "fontStyle": "bold" },
+            "cccDefault": { "foreground": "#d4ce95", "fontStyle": "bold" }
+        }
+    }
+}
