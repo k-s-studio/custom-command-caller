@@ -39,6 +39,31 @@ function Get-KeyName([string]$key) {
     return ($key -split '\s+', 2)[0]
 }
 
+function Write-CommandEcho([string]$text) {
+    $parseTokens = $null
+    $parseErrors = $null
+    $ast = [System.Management.Automation.Language.Parser]::ParseInput($text, [ref]$parseTokens, [ref]$parseErrors)
+
+    if ($parseErrors.Count -eq 0 -and $null -ne $ast -and $null -ne $ast.EndBlock) {
+        $statements = @($ast.EndBlock.Statements)
+        if ($statements.Count -gt 0) {
+            foreach ($statement in $statements) {
+                $line = $statement.Extent.Text.Trim()
+                if ($line.Length -gt 0) {
+                    Write-Host "> $line"
+                }
+            }
+            return
+        }
+    }
+
+    foreach ($line in ($text -split '\r?\n')) {
+        if ($line.Trim().Length -gt 0) {
+            Write-Host "> $($line.Trim())"
+        }
+    }
+}
+
 if (-not $Tokens -or $Tokens.Count -eq 0) {
     Write-Host "Usage: ccc <command> [args]"
     Write-Host "       ccc-router init       create cccrouter.json in current directory"
@@ -136,7 +161,7 @@ if ($argTokens.Count -gt $consumed) {
 }
 
 # echo what we hand to PowerShell, with configured $VAR resolved to real values
-Write-Host "> $(Expand-ConfiguredParams $resolved $config.params)"
+Write-CommandEcho (Expand-ConfiguredParams $resolved $config.params)
 
 # run in an isolated scope seeded only with the configured params, so PowerShell
 # expands $VAR / ${VAR} natively (and unconfigured globals like $PROFILE still work).

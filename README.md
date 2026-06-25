@@ -43,10 +43,10 @@ Step 1 - Clone the repo.
 Step 2 - 在 repo 目錄使用 `.\ccc-router install` 註冊指令至系統層級。
   ```
   .\ccc-router install                  # 安裝 ccc 與 ccc-router
-  .\ccc-router install --ext --vscode   # 一併安裝 vscode highlighter 插件
+  .\ccc-router install --beauty --vscode   # 一併安裝 vscode highlighter 插件
   ```
-  `--ext --vscode` 會從 GitHub Release 下載最新發佈的 `.vsix` 安裝（不需要 Node）。
-  如果 Step 2 沒加 `--ext`，之後再跑一次 `ccc-router install --ext --vscode` 即可補裝插件。
+  `--beauty --vscode` 會從 GitHub Release 下載最新發佈的 `.vsix` 安裝（不需要 Node）。
+  如果 Step 2 沒加 `--beauty`，之後再跑一次 `ccc-router install --beauty --vscode` 即可補裝插件。
 Step 3 - 回到你的專案目錄跑 `ccc-router init`。
 
 ### 美化器
@@ -55,7 +55,7 @@ Step 3 - 回到你的專案目錄跑 `ccc-router init`。
 調整 `editor\vscode-cccrouter-syntax\syntaxes\cccrouter.tmLanguage.json` 成為你的 own-style。因為預設安裝是抓 Release 的版本，套用本機改動要從原始碼建置（需要 Node）：
 
 ```
-ccc-router install --ext --vscode --local
+ccc-router install --beauty --vscode --local
 ```
 
 ### 環境需求

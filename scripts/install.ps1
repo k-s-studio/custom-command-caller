@@ -1,5 +1,5 @@
 param(
-    # extra flags: --ext --vscode [--local] to also install the VS Code highlighter
+    # extra flags: --beauty --vscode [--local] to also install the VS Code highlighter
     [Parameter(ValueFromRemainingArguments=$true)]
     [string[]]$Rest
 )
@@ -44,10 +44,10 @@ if ($userPath -notlike "*$installDir*") {
 Write-Host "Installed. Restart your terminal, then use 'ccc' / 'ccc-router' in any directory."
 
 # optionally install the VS Code highlighter extension in the same run:
-#   ccc-router install --ext --vscode [--local]
-if ($Rest -contains "--ext") {
+#   ccc-router install --beauty --vscode [--local]
+if ($Rest -contains "--beauty") {
     Write-Host ""
-    Write-Host "Installing highlighter extension ..."
+    Write-Host "Installing beautifier extension ..."
     $highlighterArgs = @("install")
     if ($Rest -contains "--vscode") { $highlighterArgs += "--vscode" }
     if ($Rest -contains "--local")  { $highlighterArgs += "--local" }
