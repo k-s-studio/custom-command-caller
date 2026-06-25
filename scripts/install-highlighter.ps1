@@ -82,7 +82,7 @@ else {
                 Where-Object { -not $_.draft -and -not $_.prerelease } | Select-Object -First 1
         } catch {
             Write-Host "Failed to query GitHub releases: $($_.Exception.Message)"
-            Write-Host "If you customized the syntax locally, install from source with: ccc install --ext --vscode --local"
+            Write-Host "If you customized the syntax locally, install from source with: ccc install --beauty --vscode --local"
             exit 1
         }
     }
