@@ -7,7 +7,7 @@
         "rules": {
             "cccPlaceholder": { "foreground": "#11bee9", "fontStyle": "bold" },
             "cccPositional": { "foreground": "#ccc059", "fontStyle": "bold" },
-            "cccDefault": { "foreground": "#d4ce95", "fontStyle": "bold" }
+            "cccDefault": { "foreground": "#8a8a8a", "fontStyle": "bold" }
         }
     }
 }
