@@ -1,16 +1,16 @@
-{
+﻿{
     "params": {
-        "EXTS_DIR": "editor/vscode-cccrouter-syntax",
-        "EXTS_VERSION": "0.0.7"
+        "m_EXTS_DIR": "editor/vscode-cccrouter-syntax",
+        "m_PROTECTED_BRANCHES": ["main", "master", "production"]
     },
     "commands": {
         "hide": "Add-Content .git/info/exclude \"`ncccrouter.json\"",
         "profile": "notepad $PROFILE.CurrentUserAllHosts",
         "git": {
+            "push": "if ((git rev-parse --abbrev-ref HEAD) -notin $m_PROTECTED_BRANCHES) { git push }",
             "uncommit ^0=1 ^1=--soft": "git reset HEAD~^0 ^1",
+            "user ^0 ^1": "git config --local user.name ^0; git config --local user.email ^1",
             "exclude ^0": "Add-Content .git/info/exclude ^0"
-        },
-        "ext-update": "Push-Location ${EXTS_DIR}; npx --yes @vscode/vsce package; Pop-Location; code --install-extension ${EXTS_DIR}/cccrouter-syntax-${EXTS_VERSION}.vsix --force",
-        "echo ^0=1": "Write-Host ^0"
+        }
     }
 }
