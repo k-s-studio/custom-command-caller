@@ -27,7 +27,7 @@ switch ($Command) {
         }
         $template = @'
 {
-    "params": {
+    "variables": {
         "ENVIRONMENT": "Development"
     },
     "commands": {
@@ -35,6 +35,7 @@ switch ($Command) {
         "profile": "notepad $PROFILE.CurrentUserAllHosts",
         "git": {
             "uncommit ^0=1 ^1=--soft": "git reset HEAD~^0 ^1",
+            "user ^name ^email": "git config --local user.name ^name; git config --local user.email ^email",
             "exclude ^0": "Add-Content .git/info/exclude ^0"
         }
     }

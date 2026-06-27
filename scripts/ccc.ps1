@@ -19,15 +19,15 @@ function Get-Config {
     }
 }
 
-# substitute $VAR / ${VAR} that ARE configured in params with their values, so the
+# substitute $VAR / ${VAR} that ARE configured in variables with their values, so the
 # echoed line shows real values; references not configured here (e.g. $PROFILE) are
 # left untouched for PowerShell to resolve natively at execution time.
-function Expand-ConfiguredParams([string]$text, $params) {
-    if ($null -eq $params) { return $text }
+function Expand-ConfiguredVariables([string]$text, $variables) {
+    if ($null -eq $variables) { return $text }
     return [regex]::Replace($text, '\$(?:\{([A-Za-z_]\w*)\}|([A-Za-z_]\w*))', {
         param($m)
         $name = if ($m.Groups[1].Success) { $m.Groups[1].Value } else { $m.Groups[2].Value }
-        $p = $params.PSObject.Properties[$name]
+        $p = $variables.PSObject.Properties[$name]
         if ($null -ne $p) { return [string]$p.Value }
         return $m.Value
     })
@@ -108,69 +108,74 @@ if ($null -eq $template) {
 $argTokens = @()
 if ($Tokens.Count -gt $i) { $argTokens = @($Tokens[$i..($Tokens.Count - 1)]) }
 
-# ── parse the matched key's signature: "<name> ^0=def ^1=def ..." ───────────────
+# ── parse the matched key's signature: "<name> ^a=def ^b=def ..." ───────────────
+# each param is keyed by a name or a number (^name / ^0); the order they appear in
+# the signature is the order CLI args fill them.
 $sigTokens = $matchedKey -split '\s+'
-$defaults = @{}     # index -> default text (Expand-ConfiguredParams applied on use)
-$declared = @{}     # index -> $true
+$paramOrder = [System.Collections.Generic.List[string]]::new()
+$defaults = @{}     # key -> default text (Expand-ConfiguredVariables applied on use)
 if ($sigTokens.Count -gt 1) {
     foreach ($t in $sigTokens[1..($sigTokens.Count - 1)]) {
-        if ($t -match '^\^(\d+)(?:=(.*))?$') {
-            $idx = [int]$Matches[1]
-            $declared[$idx] = $true
-            if ($Matches.ContainsKey(2)) { $defaults[$idx] = $Matches[2] }
+        if ($t -match '^\^([A-Za-z_]\w*|\d+)(?:=(.*))?$') {
+            $key = $Matches[1]
+            if (-not $paramOrder.Contains($key)) { $paramOrder.Add($key) }
+            if ($Matches.ContainsKey(2)) { $defaults[$key] = $Matches[2] }
         }
     }
 }
 
-# any ^N referenced in the template also counts as declared (so it gets filled)
-foreach ($rm in [regex]::Matches($template, '\^(\d+)')) {
-    $declared[[int]$rm.Groups[1].Value] = $true
+# any ^key referenced in the template but not declared in the signature is appended
+# in order of first appearance, so it still gets filled positionally.
+foreach ($rm in [regex]::Matches($template, '\^([A-Za-z_]\w*|\d+)')) {
+    $key = $rm.Groups[1].Value
+    if (-not $paramOrder.Contains($key)) { $paramOrder.Add($key) }
 }
 
-# ── resolve positional values from CLI args, falling back to declared defaults ──
-$maxIndex = -1
-foreach ($k in $declared.Keys) { if ($k -gt $maxIndex) { $maxIndex = $k } }
-
+# ── resolve values from CLI args (in declared order), falling back to defaults ──
 $values = @{}
-for ($n = 0; $n -le $maxIndex; $n++) {
+$missing = [System.Collections.Generic.List[string]]::new()
+for ($n = 0; $n -lt $paramOrder.Count; $n++) {
+    $key = $paramOrder[$n]
     if ($argTokens.Count -gt $n) {
-        $values[$n] = $argTokens[$n]
-    } elseif ($defaults.ContainsKey($n)) {
-        $values[$n] = Expand-ConfiguredParams $defaults[$n] $config.params
+        $values[$key] = $argTokens[$n]
+    } elseif ($defaults.ContainsKey($key)) {
+        $values[$key] = Expand-ConfiguredVariables $defaults[$key] $config.variables
     } else {
-        Write-Host "缺少參數 ^$n"
-        exit 1
+        $missing.Add("^$key")
     }
 }
 
-# substitute ^N in the template (right-to-left so indices stay valid)
-$resolved = $template
-$ph = [regex]::Matches($template, '\^(\d+)')
-for ($k = $ph.Count - 1; $k -ge 0; $k--) {
-    $m = $ph[$k]
-    $idx = [int]$m.Groups[1].Value
-    $val = if ($values.ContainsKey($idx)) { $values[$idx] } else { "" }
-    $resolved = $resolved.Remove($m.Index, $m.Length).Insert($m.Index, $val)
+if ($missing.Count -gt 0) {
+    Write-Host "Expected param(s): $($missing -join ' ')"
+    exit 1
 }
 
-# CLI args beyond the highest declared index are appended at the end
-$consumed = $maxIndex + 1
+# substitute ^key in the template with its resolved value
+$resolved = [regex]::Replace($template, '\^([A-Za-z_]\w*|\d+)', {
+    param($m)
+    $key = $m.Groups[1].Value
+    if ($values.ContainsKey($key)) { return [string]$values[$key] }
+    return $m.Value
+})
+
+# CLI args beyond the declared params are appended at the end
+$consumed = $paramOrder.Count
 if ($argTokens.Count -gt $consumed) {
     $rest = $argTokens[$consumed..($argTokens.Count - 1)]
     $resolved = "$resolved $($rest -join ' ')"
 }
 
 # echo what we hand to PowerShell, with configured $VAR resolved to real values
-Write-CommandEcho (Expand-ConfiguredParams $resolved $config.params)
+Write-CommandEcho (Expand-ConfiguredVariables $resolved $config.variables)
 
-# run in an isolated scope seeded only with the configured params, so PowerShell
+# run in an isolated scope seeded only with the configured variables, so PowerShell
 # expands $VAR / ${VAR} natively (and unconfigured globals like $PROFILE still work).
-# also export each param as a process env var, so child processes spawned by the
+# also export each variable as a process env var, so child processes spawned by the
 # command (e.g. dotnet/EF reading the connection string from $env:...) inherit them.
 # ccc runs as its own short-lived process, so these never leak into the user's shell.
 $variables = [System.Collections.Generic.List[psvariable]]::new()
-foreach ($param in $config.params.PSObject.Properties) {
-    $variables.Add([psvariable]::new($param.Name, $param.Value))
-    [Environment]::SetEnvironmentVariable($param.Name, $param.Value, "Process")
+foreach ($var in $config.variables.PSObject.Properties) {
+    $variables.Add([psvariable]::new($var.Name, $var.Value))
+    [Environment]::SetEnvironmentVariable($var.Name, $var.Value, "Process")
 }
 [scriptblock]::Create($resolved).InvokeWithContext($null, $variables, $null)

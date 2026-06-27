@@ -1,5 +1,5 @@
 ﻿{
-    "params": {
+    "variables": {
         "m_EXTS_DIR": "editor/vscode-cccrouter-syntax",
         "m_PROTECTED_BRANCHES": ["main", "master", "production"]
     },
@@ -9,7 +9,7 @@
         "git": {
             "push ^0=": "if ((git rev-parse --abbrev-ref HEAD) -notin $m_PROTECTED_BRANCHES) { git push ^0}",
             "uncommit ^0=1 ^1=--soft": "git reset HEAD~^0 ^1",
-            "user ^0 ^1": "git config --local user.name ^0; git config --local user.email ^1",
+            "user ^name ^email": "git config --local user.name ^name; git config --local user.email ^email",
             "exclude": "notepad .git/info/exclude"
         }
     }
