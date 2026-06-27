@@ -6,7 +6,7 @@ ccc <command...> <optional positional args...>
 指令可以巢狀分流，key 同時是「子指令 + 參數簽章」，value 是實際送進 powershell 的模板：
 ```json
 {
-    "params": {
+    "variables": {
         "ENVIRONMENT": "Development",
         "EF_DB_CONTEXT": "CccDbContext"
     },
@@ -14,6 +14,7 @@ ccc <command...> <optional positional args...>
         "profile": "notepad $PROFILE.CurrentUserAllHosts",
         "git": {
             "uncommit ^0=1 ^1=--soft": "git reset HEAD~^0 ^1",
+            "user ^name ^email": "git config --local user.name ^name; git config --local user.email ^email",
             "exclude ^0": "Add-Content .git/info/exclude ^0"
         },
         "ef": {
@@ -22,12 +23,16 @@ ccc <command...> <optional positional args...>
     }
 }
 ```
+參數可以用數字 `^0` 或具名 `^name`；不論哪種，呼叫時都依「在 key 簽章裡出現的順序」依序填入。
+
 對應的呼叫：
 ```
-ccc git uncommit 3        => git reset HEAD~3 --soft
-ccc git uncommit 1 --hard => git reset HEAD~1 --hard
-ccc git exclude           => 報錯：缺少參數 ^0
-ccc ef roll               => dotnet ef database update  --context CccDbContext -- --environment Development
+ccc git uncommit 3            => git reset HEAD~3 --soft
+ccc git uncommit 1 --hard     => git reset HEAD~1 --hard
+ccc git user Rick a@b.com     => git config --local user.name Rick; git config --local user.email a@b.com
+ccc git user                  => 報錯：Expected param(s): ^name ^email
+ccc git exclude               => 報錯：Expected param(s): ^0
+ccc ef roll                   => dotnet ef database update  --context CccDbContext -- --environment Development
 ```
 
 ### 兩個指令
@@ -65,10 +70,10 @@ ccc-router install --beauty --vscode --local
 
 ### 語法規則
 - **巢狀分流**：value 是物件時代表命名空間，可繼續往下分流；value 是字串時代表這是一條指令。路由時逐 token 比對 key 的第一個字（`"uncommit ^0=1"` 的 routable 名稱是 `uncommit`）。
-- **參數簽章**：key 在子指令名後面可宣告位置參數 `^0 ^1 ...`，並可用 `^n=default` 給預設值。預設值本身可引用 `$VAR`（會用 params 的值展開）。
-- **位置參數**：呼叫時在指令尾端依序提供 `^0`、`^1`……。沒提供且沒有預設值就在送進 powershell 前報錯「缺少參數 ^n」。超過簽章宣告數量的參數仍會被使用，接在最尾。
-- **params 變數**：value 裡的 `$VAR` / `${VAR}` 在執行時由 powershell 在隔離 scope 內展開（params 同時也會 export 成 process 環境變數供子程序讀取）。沒在 params 設定的變數（如 `$PROFILE`）交給 powershell 原生解析。
-- **執行前回顯**：每次執行前印出 `> ...`，其中有設定在 params 的 `$VAR` 會顯示成實際值，未設定的保留原樣。
+- **參數簽章**：key 在子指令名後面可宣告參數 `^0 ^1 ...` 或具名 `^name ^email ...`，並可用 `^key=default` 給預設值。預設值本身可引用 `$VAR`（會用 variables 的值展開）。
+- **參數填值**：呼叫時在指令尾端依序提供值，依「在簽章裡出現的順序」填入各參數（不論是數字或具名）。沒提供且沒有預設值，就在送進 powershell 前一次列出全部缺漏：`Expected param(s): ^name ^email`。超過簽章宣告數量的參數仍會被使用，接在最尾。
+- **variables 變數**：value 裡的 `$VAR` / `${VAR}` 在執行時由 powershell 在隔離 scope 內展開（variables 同時也會 export 成 process 環境變數供子程序讀取）。沒在 variables 設定的變數（如 `$PROFILE`）交給 powershell 原生解析。
+- **執行前回顯**：每次執行前印出 `> ...`，其中有設定在 variables 的 `$VAR` 會顯示成實際值，未設定的保留原樣。
 
 ### 未來計畫
 - 直接用 powershell style 渲染 cccrouter value 最後加上 placeholder 醒目
