@@ -1,6 +1,7 @@
 # Files listed here will NOT be merged into main when dev is pushed.
-# Supports exact file paths and directory paths (e.g. dir/).
-# Lines starting with # are comments. Blank lines are ignored.
+# Uses .gitignore syntax: a bare name (no slash) matches that name at ANY depth,
+# a leading "/" anchors to the repo root, "dir/" excludes a whole directory, and
+# "dir/*" its direct children. Lines starting with # are comments; blanks ignored.
 
 # Keep the auto-merge workflow off main, but DO let release-extension.yml reach
 # main — workflow_dispatch's "Run workflow" button only appears for workflows on

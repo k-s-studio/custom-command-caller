@@ -33,8 +33,33 @@ jobs:
           # Read the exclusion list from dev BEFORE merging. It must come from dev (not
           # the working tree): .dev-files is itself excluded, so it does not exist on
           # main and the merge may delete it from the tree — reading it afterward would
-          # silently skip all exclusions.
-          DEV_FILES_LIST="$(git show origin/dev:.dev-files 2>/dev/null || true)"
+          # silently skip all exclusions. Strip CRLF so the patterns parse cleanly when
+          # used as a .gitignore file below.
+          EXCLUDE_FILE="$(mktemp)"
+          git show origin/dev:.dev-files 2>/dev/null | tr -d '\r' > "$EXCLUDE_FILE" || true
+
+          # List tracked paths in the *current* index that match .dev-files, using real
+          # .gitignore semantics via git's own matcher: a bare name like
+          # ".instructions.md" matches at ANY depth, while a leading "/" anchors to the
+          # repo root. (The previous implementation fed each line to git as a pathspec,
+          # which is root-anchored — so bare names only matched root-level files and
+          # subdirectory matches such as scripts/.instructions.md leaked into main.)
+          # core.excludesFile is pinned to /dev/null so only .dev-files drives the
+          # result; the repo's own .gitignore covers untracked build artifacts only and
+          # never matches a tracked path.
+          excluded_paths() {
+            git -c core.excludesFile=/dev/null ls-files -i -c --exclude-from="$EXCLUDE_FILE" | sort -u
+          }
+
+          # Excluded paths that exist on main, computed from a throwaway index built
+          # from main's tree. These must always end up as main's version, even if the
+          # merge modified or deleted them.
+          TMP_INDEX="$(mktemp -u)"
+          export GIT_INDEX_FILE="$TMP_INDEX"
+          git read-tree "$MAIN_HEAD"
+          MAIN_MATCHED="$(excluded_paths)"
+          unset GIT_INDEX_FILE
+          rm -f "$TMP_INDEX"
 
           # Merge without committing so the excluded files never get merged in.
           # Conflicts (e.g. a file modified in dev but deleted in main) are tolerated
@@ -42,27 +67,28 @@ jobs:
           # for everything else by failing loudly.
           git merge --no-ff --no-commit origin/dev || true
 
-          # Force every excluded path back to main's state, regardless of what the
-          # merge produced (restore main's version, or drop dev-only paths).
-          if [ -n "$DEV_FILES_LIST" ]; then
-            while IFS= read -r pattern || [ -n "$pattern" ]; do
-              # Strip Windows CRLF and skip comments / blank lines
-              pattern="${pattern%$'\r'}"
-              [[ "$pattern" =~ ^[[:space:]]*# || -z "${pattern// }" ]] && continue
+          # Excluded paths the merge produced (dev-only additions and modifications of
+          # main's excluded files). Together with MAIN_MATCHED this is every path that
+          # must be forced back to main's state.
+          MERGED_MATCHED="$(excluded_paths)"
 
-              if git ls-tree -r --name-only "$MAIN_HEAD" -- "$pattern" | grep -q .; then
-                # Exists in main → discard the merge result and restore main's version
-                echo "Restoring $pattern from main"
-                rm -rf -- "$pattern"
-                git checkout "$MAIN_HEAD" -- "$pattern"
-              else
-                # Dev-only path → keep it out of main entirely
-                echo "Removing dev-only path: $pattern"
-                git rm -rf --cached --ignore-unmatch -- "$pattern" >/dev/null 2>&1 || true
-                rm -rf -- "$pattern"
-              fi
-            done <<< "$DEV_FILES_LIST"
-          fi
+          ALL_MATCHED="$(printf '%s\n%s\n' "$MAIN_MATCHED" "$MERGED_MATCHED" | sort -u | sed '/^$/d')"
+          while IFS= read -r path || [ -n "$path" ]; do
+            [ -z "$path" ] && continue
+            if printf '%s\n' "$MAIN_MATCHED" | grep -Fxq -- "$path"; then
+              # Exists in main → discard the merge result and restore main's version
+              echo "Restoring $path from main"
+              rm -rf -- "$path"
+              git checkout "$MAIN_HEAD" -- "$path"
+            else
+              # Dev-only path → keep it out of main entirely
+              echo "Removing dev-only path: $path"
+              git rm -rf --cached --ignore-unmatch -- "$path" >/dev/null 2>&1 || true
+              rm -rf -- "$path"
+            fi
+          done <<< "$ALL_MATCHED"
+
+          rm -f "$EXCLUDE_FILE"
 
           # Any unmerged entries left now are real conflicts in non-excluded files.
           if git ls-files --unmerged | grep -q .; then
