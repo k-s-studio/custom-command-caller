@@ -2,11 +2,14 @@
 # Supports exact file paths and directory paths (e.g. dir/).
 # Lines starting with # are comments. Blank lines are ignored.
 
-cccrouter.json
 # Keep the auto-merge workflow off main, but DO let release-extension.yml reach
 # main — workflow_dispatch's "Run workflow" button only appears for workflows on
 # the default branch (main).
+
 .github/workflows/dev-to-main.yml
 .dev-files
-CLAUDE.md
+.instructions.md
 .vscode/*
+CLAUDE.md
+SPEC.md
+/cccrouter.json

@@ -5,9 +5,10 @@ param(
 
 $Repo = "k-s-studio/custom-command-caller"
 
-# Invoked by install.ps1 for `ccc install --ext --vscode [--local]`.
+# Invoked by install.ps1 (`ccc-router install --beauty --vscode [--local]`) and by
+# `ccc-router beauty install --vscode [--local]`.
 if ($Rest.Count -lt 2 -or $Rest[0] -ne "install" -or $Rest[1] -ne "--vscode") {
-    Write-Host "Usage: ccc install --ext --vscode [--local]"
+    Write-Host "Usage: ccc-router install --beauty --vscode [--local]"
     Write-Host "  (default) install the published extension from the latest GitHub Release"
     Write-Host "  --local   build the extension from the cloned source and install that"
     exit 0
@@ -82,7 +83,7 @@ else {
                 Where-Object { -not $_.draft -and -not $_.prerelease } | Select-Object -First 1
         } catch {
             Write-Host "Failed to query GitHub releases: $($_.Exception.Message)"
-            Write-Host "If you customized the syntax locally, install from source with: ccc install --beauty --vscode --local"
+            Write-Host "If you customized the syntax locally, install from source with: ccc-router install --beauty --vscode --local"
             exit 1
         }
     }
