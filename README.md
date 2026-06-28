@@ -81,7 +81,7 @@ Step 3 - 回到你的專案目錄跑 `ccc-router init`。
 高亮由插件的 semantic tokens 提供，三種片段各自有獨立的 token type：`$VAR` / `${VAR}` → `cccPlaceholder`、`^key` → `cccPositional`、簽章預設值 `=default` → `cccDefault`。
 
 #### 調整 VSCode 的語法顏色
-若要調整 cccrouter.json 的語法顏色，在 `/.vscode/settings.json` 加上這些:
+若要調整 cccrouter.json 的語法顏色，在 `/.vscode/settings.json` 加上:
 
 ```json
 {
@@ -89,15 +89,17 @@ Step 3 - 回到你的專案目錄跑 `ccc-router init`。
     "editor.semanticTokenColorCustomizations": {
         "rules": {
             "cccPlaceholder": { "foreground": "#f1d900", "fontStyle": "bold" },
-            "cccPositional": { "foreground": "#6e4dff", "fontStyle": "bold" },
-            "cccDefault": { "foreground": "#d4ce95", "fontStyle": "bold" }
+            "cccPositional": { "foreground": "#ff4dbb", "fontStyle": "bold" },
+            "cccDefault": { "foreground": "#4646db", "fontStyle": "bold" }
         }
     }
 }
 ```
 就會覆蓋預設顏色設定，存檔後執行 **Developer: Reload Window** 即生效。
 
+> *Alternative*: 
+`Ctrl+Shift+P` → **Preferences: Open User Settings (JSON)** 找上述設定，可以編輯安裝插件時已寫入的顏色（使用者層級）
+
 ### 未來計畫
 - 直接用 powershell style 渲染 cccrouter value 最後加上 placeholder 醒目
-- 調整 readme，作為完整規格文件
-- 有個 prompt 讓 agent 幫我抓需要的值，再有個 skill 告訴 agent 如何使用 router
+- 一個 prompt 讓 agent 從專案判斷常用的指令寫進 cccrouter.json & 一個 skill 告訴 agent 如何使用 ccc
