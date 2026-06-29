@@ -5,7 +5,8 @@ param(
 )
 
 $installDir = "$env:USERPROFILE\.ccc"
-$scriptDir  = $PSScriptRoot
+$repoRoot   = $PSScriptRoot
+$scriptDir  = Join-Path $repoRoot "scripts"
 
 # the repo bootstrap (ccc-router.bat) forwards the verb, i.e. 'install [--beauty ...]';
 # drop a leading 'install' token so only flags remain.
@@ -35,7 +36,7 @@ foreach ($file in @("ccc.ps1", "ccc-router.ps1", "uninstall.ps1", "install-highl
 # source of truth is <repo>/components/cccrouter.json; when re-running from an already
 # installed copy (no repo alongside) just keep the template already in place.
 $templateDst = Join-Path $installDir "cccrouter.json"
-$templateSrc = Join-Path (Split-Path $scriptDir -Parent) "components\cccrouter.json"
+$templateSrc = Join-Path $repoRoot "components\cccrouter.json"
 if ((Test-Path $templateSrc) -and ((Resolve-Path $templateSrc).Path -ne (Resolve-Path -LiteralPath $templateDst -ErrorAction SilentlyContinue).Path)) {
     Copy-Item $templateSrc $templateDst -Force
     Write-Host "Installed cccrouter.json template (used by 'ccc-router init')."
@@ -49,7 +50,6 @@ if ((Test-Path $templateSrc) -and ((Resolve-Path $templateSrc).Path -ne (Resolve
 # installed copy, or a non-git source) keep any existing .base rather than clobbering it.
 $stampPath = Join-Path $installDir ".base"
 $commit = ""
-$repoRoot = Split-Path $scriptDir -Parent
 if (Test-Path (Join-Path $repoRoot ".git")) {
     try { $commit = (git -C $repoRoot rev-parse HEAD 2>$null).Trim() } catch { $commit = "" }
 }
