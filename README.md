@@ -76,9 +76,9 @@ Step 3 - 回到你的專案目錄跑 `ccc-router init`。
 - **執行前回顯**：每次執行前印出 `> ...`，其中有設定在 variables 的 `$VAR` 會顯示成實際值，未設定的保留原樣。
 
 ### 美化器
-`editor\vscode-cccrouter-syntax` 是一個用於美化 cccrouter.json 編輯器的 vscode 插件，讓字串裡的 placeholder：`${var}`、`$var`、`^n`、簽章 `^n=default` 變得醒目。
+`editor\vscode-cccrouter-syntax` 是一個用於美化 cccrouter.json 編輯器的 vscode 插件。它一方面讓 ccc 的佔位符（`${var}`、`$var`、`^n`、簽章 `^n=default`）醒目，另一方面把 `commands` 裡的指令模板**當成 PowerShell 上色**——命令、關鍵字、`-旗標`、運算子、字串各有顏色，讀起來就像在 `.ps1` 裡。
 
-高亮由插件的 semantic tokens 提供，三種片段各自有獨立的 token type：`$VAR` / `${VAR}` → `cccPlaceholder`、`^key` → `cccPositional`、簽章預設值 `=default` → `cccDefault`。
+高亮由插件的 semantic tokens 提供，各片段有獨立的 token type：佔位符 `$VAR` / `${VAR}` → `cccPlaceholder`、`^key` → `cccPositional`、簽章預設值 `=default` → `cccDefault`；PowerShell 部分則有命令 `cccCommand`、關鍵字 `cccKeyword`、參數旗標 `cccParameter`、運算子 `cccOperator`、字串 `cccString`。
 
 #### 調整 VSCode 的語法顏色
 若要調整 cccrouter.json 的語法顏色，在 `/.vscode/settings.json` 加上:
@@ -90,7 +90,12 @@ Step 3 - 回到你的專案目錄跑 `ccc-router init`。
         "rules": {
             "cccPlaceholder": { "foreground": "#f1d900", "fontStyle": "bold" },
             "cccPositional": { "foreground": "#ff4dbb", "fontStyle": "bold" },
-            "cccDefault": { "foreground": "#4646db", "fontStyle": "bold" }
+            "cccDefault": { "foreground": "#4646db", "fontStyle": "bold" },
+            "cccCommand": { "foreground": "#dcdcaa", "fontStyle": "bold" },
+            "cccKeyword": { "foreground": "#c586c0", "fontStyle": "bold" },
+            "cccParameter": { "foreground": "#9cdcfe" },
+            "cccOperator": { "foreground": "#d4d4d4" },
+            "cccString": { "foreground": "#ce9178" }
         }
     }
 }
@@ -101,5 +106,4 @@ Step 3 - 回到你的專案目錄跑 `ccc-router init`。
 `Ctrl+Shift+P` → **Preferences: Open User Settings (JSON)** 找上述設定，可以編輯安裝插件時已寫入的顏色（使用者層級）
 
 ### 未來計畫
-- 直接用 powershell style 渲染 cccrouter value 最後加上 placeholder 醒目
 - 一個 prompt 讓 agent 從專案判斷常用的指令寫進 cccrouter.json & 一個 skill 告訴 agent 如何使用 ccc
