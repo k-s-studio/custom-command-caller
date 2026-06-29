@@ -157,7 +157,7 @@ ccc 永遠在 `cccrouter.json` 所在目錄（專案根目錄）執行。
 
 ### Highlighter
 
-高亮由 `editor/vscode-cccrouter-syntax/extension.js` 的 semantic tokens provider 提供（不是 tmLanguage）：`^key`（`^0` / `^name`）→ `cccPositional`，`$VAR` / `${VAR}` → `cccPlaceholder`。發佈走 GitHub Release，細節見 `editor/vscode-cccrouter-syntax/.instructions.md`。
+高亮由 `editor/vscode-cccrouter-syntax/extension.js` 的 semantic tokens provider 提供（不是 tmLanguage）。除了 ccc 自己的 `^key` / `$VAR` 佔位符，還會把 `commands` 裡的指令模板**當成 PowerShell 上色**（命令、關鍵字、參數、運算子、字串），讓 value 讀起來就像在 `.ps1` 裡。token 類型與 tokenizer 細節見下方「自訂顏色」。發佈走 GitHub Release，細節見 `editor/vscode-cccrouter-syntax/.instructions.md`。
 
 ## cccrouter-syntax
 
@@ -191,31 +191,57 @@ ccc-router install --beauty --vscode --local
 
 ### 自訂顏色
 
-`extension.js` 會辨識指令模板字串裡的三種片段，並各自回報成獨立的 semantic token type：
+`extension.js` 會回報 8 種 semantic token type，分兩類。
 
-- `${VAR}`、`$VAR`（對應 `variables` 設定的變數）→ `cccPlaceholder`
+**ccc 自己的佔位符**（key 簽章與 value 皆會比對）：
+
+- `${VAR}`、`$VAR`（對應 `variables` 設定的變數，也是 PowerShell 變數）→ `cccPlaceholder`
 - `^key`（參數標記，可為數字 `^0` 或具名 `^name`；出現在 key 簽章 `^key=default` 或 value `HEAD~^0` 中）→ `cccPositional`
 - `=default`（簽章 `^key=default` 裡 `^key` 後面的預設值，含 `=`）→ `cccDefault`
 
-> `^key` 標記與其 `=default` 預設值會上不同色；預設值裡若是 `$VAR`（如 `^1=$ENVIRONMENT`），value 比對會停在 `$`，把 `$VAR` 留給 `cccPlaceholder` 規則上色，三種 token 不重疊。
+**PowerShell 語法**（只在 `commands` 子樹的 value 裡比對）：
+
+- 命令位置的字（statement 開頭、`;` `|` `&&` `||` `&` `(` `{` 之後的第一個 token）→ `cccCommand`；若該字是 PowerShell 關鍵字（`if` / `foreach` / `return` …）則改成 `cccKeyword`
+- `-Name` / `--long` 旗標（在參數位置）→ `cccParameter`；但若是字運算子（`-eq` / `-notin` / `-and` …）→ `cccOperator`
+- `;` `|` `&&` `||` `&` 等分隔/管線 → `cccOperator`
+- 引號字串 `'...'` 與 JSON 轉義的 `\"...\"` → `cccString`（雙引號字串裡的 `$VAR` 會被切出來留給 `cccPlaceholder`）
+
+> 一般的引數裸字（路徑、子指令如 `git` 後面的 `config`）不上色，保留 JSON 字串本色，讓「命令 / 旗標 / 字串」三者跳出來。
+
+#### Tokenizer 架構
+
+不是逐行 regex，而是對整份文件做一次線性掃描（`collectTokens`），邊掃邊維護 JSON 結構：物件/陣列的進出、每個字串是 key 還是 value（看後面第一個非空白字元是不是 `:`）、以及它屬於哪個頂層區段（`stack[1].key`，即 `commands` / `variables`）。因為知道結構，才能：
+
+- 只把 `commands` 子樹的 **value** 餵給 PowerShell lexer（`lexCommandValue`），`variables` 的值（如 `"Development"`）不會被誤判成命令；
+- key 簽章另走 `lexKeySignature`（只認 `^key` / `=default` / `$VAR`）；
+- 字串裡的 `{` `}`（如 scriptblock `... { git push ^0}`）不會被當成 JSON 結構誤算巢狀深度。
+
+`lexCommandValue` 是一個單行、無跨行狀態的小型 PowerShell 掃描器（JSON value 不含實體換行）：維護一個「是否在命令位置」的旗標，遇到 `;` `|` `&` `(` `{` 重設為 true、輸出 token 後設 false。`$VAR` 與 `^key` 一律切出來交給佔位符規則，雙引號字串內的 `$VAR` 也會切出，所以所有 token **不重疊**（`provider` 只做一次 `sort` 後 `push`，不需去重）。
+
+> 已知取捨：賦值右側不算命令位置（`$dir = Split-Path ...` 的 `Split-Path` 不會上命令色），數字字面值也不另外上色——寧可少上色，也不要把字面值誤標成命令。
 
 #### 不需重新打包就能改顏色
 
 extension 的 `configurationDefaults` 只是**預設值**，會被使用者 / 工作區的 `settings.json` 覆蓋。改 `settings.json` 後只要 **Developer: Reload Window** 即可生效，不需要重新打包 vsix、也不需要 Node。
 
-本 repo 已在 `.vscode/settings.json` 把三個顏色接出來，要換色直接改那裡的 `foreground` 即可（工作區設定，整個團隊共用）。也可以改成放使用者層級的 `settings.json`：
+本 repo 已在 `.vscode/settings.json` 把全部顏色接出來，要換色直接改那裡的 `foreground` 即可（工作區設定，整個團隊共用）。也可以改成放使用者層級的 `settings.json`，只挑想換的 token 覆蓋即可：
 
 ```json
 "editor.semanticTokenColorCustomizations": {
     "rules": {
-        "cccPlaceholder": { "foreground": "#f1d900", "fontStyle": "bold" },
-        "cccPositional": { "foreground": "#6e4dff", "fontStyle": "bold" },
-        "cccDefault": { "foreground": "#d4ce95", "fontStyle": "bold" }
+        "cccPlaceholder": { "foreground": "#11bee9", "fontStyle": "bold" },
+        "cccPositional": { "foreground": "#ccc059", "fontStyle": "bold" },
+        "cccDefault": { "foreground": "#8a8a8a", "fontStyle": "bold" },
+        "cccCommand": { "foreground": "#dcdcaa", "fontStyle": "bold" },
+        "cccKeyword": { "foreground": "#c586c0", "fontStyle": "bold" },
+        "cccParameter": { "foreground": "#9cdcfe" },
+        "cccOperator": { "foreground": "#d4d4d4" },
+        "cccString": { "foreground": "#ce9178" }
     }
 }
 ```
 
-> 只有「顏色」能這樣外接；要改「哪些文字被上色」（比對規則）還是得改 `extension.js` 並重新打包。新增 token type（像這次的 `cccDefault`）也屬於需要打包的改動。
+> 只有「顏色」能這樣外接；要改「哪些文字被上色」（比對規則）還是得改 `extension.js` 並重新打包。新增 token type（像這次的 `cccCommand` / `cccKeyword` / `cccParameter` / `cccOperator` / `cccString`）也屬於需要打包的改動。
 
 ### 發佈新版美化器流程
 1. 在 `editor\vscode-cccrouter-syntax\package.json` 把 `version` 加上去。

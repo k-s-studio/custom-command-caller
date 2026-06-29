@@ -2,7 +2,7 @@
     "name": "cccrouter-syntax",
     "displayName": "CCC Router Syntax",
     "description": "Syntax highlighting for cccrouter.json that highlights $PARAM placeholders inside command templates",
-    "version": "0.0.8",
+    "version": "0.1.0",
     "engines": {
         "vscode": "^1.70.0"
     },
@@ -25,6 +25,26 @@
             {
                 "id": "cccDefault",
                 "description": "cccrouter ^n=default positional default value"
+            },
+            {
+                "id": "cccCommand",
+                "description": "command in command position (cmdlet / exe at a statement head)"
+            },
+            {
+                "id": "cccKeyword",
+                "description": "powershell language keyword (if / foreach / return ...)"
+            },
+            {
+                "id": "cccParameter",
+                "description": "a -Name / --long parameter or flag in argument position"
+            },
+            {
+                "id": "cccOperator",
+                "description": "pipeline / statement separators and word operators (; | && -eq ...)"
+            },
+            {
+                "id": "cccString",
+                "description": "a quoted string inside a command value"
             }
         ],
         "semanticTokenScopes": [
@@ -32,7 +52,12 @@
                 "scopes": {
                     "cccPlaceholder": ["variable.parameter.placeholder.cccrouter"],
                     "cccPositional": ["variable.parameter.positional.cccrouter"],
-                    "cccDefault": ["variable.parameter.default.cccrouter"]
+                    "cccDefault": ["variable.parameter.default.cccrouter"],
+                    "cccCommand": ["support.function.cccrouter", "entity.name.function.cccrouter"],
+                    "cccKeyword": ["keyword.control.cccrouter"],
+                    "cccParameter": ["variable.parameter.flag.cccrouter"],
+                    "cccOperator": ["keyword.operator.cccrouter"],
+                    "cccString": ["string.quoted.cccrouter"]
                 }
             }
         ],
@@ -41,7 +66,12 @@
                 "rules": {
                     "cccPlaceholder": { "foreground": "#11bee9", "fontStyle": "bold" },
                     "cccPositional": { "foreground": "#ccc059", "fontStyle": "bold" },
-                    "cccDefault": { "foreground": "#8a8a8a", "fontStyle": "bold" }
+                    "cccDefault": { "foreground": "#8a8a8a", "fontStyle": "bold" },
+                    "cccCommand": { "foreground": "#dcdcaa", "fontStyle": "bold" },
+                    "cccKeyword": { "foreground": "#c586c0", "fontStyle": "bold" },
+                    "cccParameter": { "foreground": "#9cdcfe" },
+                    "cccOperator": { "foreground": "#d4d4d4" },
+                    "cccString": { "foreground": "#ce9178" }
                 }
             }
         }
