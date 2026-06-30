@@ -1,16 +1,20 @@
 ﻿{
     "variables": {
-        "m_EXTS_DIR": "editor/vscode-cccrouter-syntax",
-        "m_PROTECTED_BRANCHES": ["main", "master", "production"]
+        "m_PROTECTED_BRANCHES": ["main", "master", "production"],
+        "m_DEFAULT_MIGRATION_NAME": "AAAA",
+        "m_DB_CONTEXT":"ProjectDbContext",
+        "m_ENV":"Development"
     },
     "commands": {
         "hide": "Add-Content .git/info/exclude \"`ncccrouter.json\"",
         "profile": "notepad $PROFILE.CurrentUserAllHosts",
         "git": {
-            "push ^0=": "if ((git rev-parse --abbrev-ref HEAD) -notin $m_PROTECTED_BRANCHES) { git push ^0}",
-            "uncommit ^0=1 ^1=--soft": "git reset HEAD~^0 ^1",
-            "user ^name ^email": "git config --local user.name ^name; git config --local user.email ^email",
-            "exclude": "notepad .git/info/exclude"
+            "push ^0=": "if ((git rev-parse --abbrev-ref HEAD) -notin $m_PROTECTED_BRANCHES) { git push ^0 }",
+            "exclude": "notepad .git/info/exclude",
+            "user ^name ^email": "git config --local user.name ^name; git config --local user.email ^email"
+        },
+        "ef":{
+            "add ^migrationName=$m_DEFAULT_MIGRATION_NAME": "dotnet ef migration add ^migrationName --context $m_DB_CONTEXT -- --environment m_ENV"
         }
     }
 }

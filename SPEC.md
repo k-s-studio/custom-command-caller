@@ -243,6 +243,19 @@ extension 的 `configurationDefaults` 只是**預設值**，會被使用者 / �
 
 > 只有「顏色」能這樣外接；要改「哪些文字被上色」（比對規則）還是得改 `extension.js` 並重新打包。新增 token type（像這次的 `cccCommand` / `cccKeyword` / `cccParameter` / `cccOperator` / `cccString`）也屬於需要打包的改動。
 
+#### 兩個換色指令（Command Palette）
+
+除了手動編輯 `settings.json`，extension 另外註冊兩個指令，讓不熟悉 token 名稱的使用者也能換色：
+
+- **`CCC Router Syntax: Customize Colors`**（`cccrouter.customizeColors`）：把 `configurationDefaults` 裡所有 `ccc*` 規則補進**使用者層級** `settings.json` 的 `editor.semanticTokenColorCustomizations.rules`，當作編輯起點，接著開啟 `settings.json`。採「補缺」策略——**已存在的 token 顏色一律不覆蓋**，所以重跑是安全的；若八個 token 都已寫入則跳過寫入、直接開檔。
+- **`CCC Router Syntax: Reset Colors`**（`cccrouter.resetColors`）：只從使用者設定移除 `ccc*` 規則，讓顏色退回 extension 預設值。使用者自己加的非 `ccc` 規則保留不動；若移除後 `rules` 空了、整個設定物件也空了，就把整個設定清成 `undefined`，不留 `{ "rules": {} }` 空殼。
+
+設計重點：
+
+- 兩個指令的顏色來源是**執行期從 extension 自己的 `packageJSON.contributes.configurationDefaults` 讀回來**（`context.extension.packageJSON`），不在 `extension.js` 另存一份，維持 `configurationDefaults` 為唯一真實來源、不會漂移。
+- 寫入走 VSCode 官方 `WorkspaceConfiguration.update(..., ConfigurationTarget.Global)`，由 VSCode 自己的 JSON 編輯機制改檔，**保留 `settings.json` 其餘部分的註解與格式**（這是用腳本純文字改檔做不到的，也是為什麼換色不做成 `ccc-router` CLI 子指令）。
+- 取捨：一旦 `Customize Colors` 把值寫進使用者設定，該使用者就**脫離 `configurationDefaults` 的後續更新**（使用者設定永遠蓋過預設值）。日後改了預設配色，已 customize 的使用者收不到，要 `Reset Colors` 才會退回。
+
 ### 發佈新版美化器流程
 1. 在 `editor\vscode-cccrouter-syntax\package.json` 把 `version` 加上去。
 2. 到 GitHub 的 **Actions → Release highlighter extension**，在 `dev` 分支按 **Run workflow**。

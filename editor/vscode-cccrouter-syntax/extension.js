@@ -213,9 +213,67 @@ const provider = {
     }
 };
 
+// the colour setting we seed/reset. under the 'editor' config section it is just
+// the leaf key; inside package.json's configurationDefaults it is the dotted form.
+const SEMANTIC_KEY = 'semanticTokenColorCustomizations';
+const SEMANTIC_DOTTED = 'editor.semanticTokenColorCustomizations';
+
+// read the shipped default rules back out of *this* extension's package.json
+// (contributes.configurationDefaults) so the commands have a single source of
+// truth and can never drift from the colours the extension already provides.
+// returned as a deep copy — callers mutate it freely.
+function defaultRules(context) {
+    const rules = context.extension.packageJSON
+        ?.contributes?.configurationDefaults?.[SEMANTIC_DOTTED]?.rules;
+    return rules ? JSON.parse(JSON.stringify(rules)) : {};
+}
+
+// "CCC Router Syntax: Customize Colors" — seed any missing ccc* rule into the
+// user-level settings.json (never overwriting a colour the user already set),
+// then open settings.json to edit. when every rule is already present the write
+// is skipped and it simply opens the file.
+async function customizeColors(context) {
+    const cfg = vscode.workspace.getConfiguration('editor');
+    const current = cfg.inspect(SEMANTIC_KEY)?.globalValue;
+    const next = current ? JSON.parse(JSON.stringify(current)) : {};
+    if (!next.rules) next.rules = {};
+    let changed = false;
+    for (const [name, rule] of Object.entries(defaultRules(context))) {
+        if (!(name in next.rules)) { next.rules[name] = rule; changed = true; }
+    }
+    if (changed) await cfg.update(SEMANTIC_KEY, next, vscode.ConfigurationTarget.Global);
+    await vscode.commands.executeCommand('workbench.action.openSettingsJson');
+}
+
+// "CCC Router Syntax: Reset Colors" — drop only the ccc* rules from the
+// user-level setting so the colours fall back to the extension defaults. any
+// non-ccc rule the user added is left intact; if nothing else remains the whole
+// setting is cleared so no empty `{ "rules": {} }` husk is left behind.
+async function resetColors(context) {
+    const cfg = vscode.workspace.getConfiguration('editor');
+    const current = cfg.inspect(SEMANTIC_KEY)?.globalValue;
+    if (!current || !current.rules) {
+        vscode.window.showInformationMessage('CCC Router Syntax: no custom colours to reset.');
+        return;
+    }
+    const next = JSON.parse(JSON.stringify(current));
+    let removed = 0;
+    for (const name of Object.keys(defaultRules(context))) {
+        if (name in next.rules) { delete next.rules[name]; removed++; }
+    }
+    if (Object.keys(next.rules).length === 0) delete next.rules;
+    const empty = Object.keys(next).length === 0;
+    await cfg.update(SEMANTIC_KEY, empty ? undefined : next, vscode.ConfigurationTarget.Global);
+    vscode.window.showInformationMessage(
+        removed ? `CCC Router Syntax: reset ${removed} colour rule(s) to defaults.`
+                : 'CCC Router Syntax: no ccc colours were set.');
+}
+
 function activate(context) {
     context.subscriptions.push(
-        vscode.languages.registerDocumentSemanticTokensProvider(SELECTOR, provider, LEGEND)
+        vscode.languages.registerDocumentSemanticTokensProvider(SELECTOR, provider, LEGEND),
+        vscode.commands.registerCommand('cccrouter.customizeColors', () => customizeColors(context)),
+        vscode.commands.registerCommand('cccrouter.resetColors', () => resetColors(context))
     );
 }
 
