@@ -3,54 +3,6 @@ ccc 是一個 command router。在 `cccrouter.json` 自訂指令與參數，然�
 ```
 ccc <command...> <optional positional args...>
 ```
-指令可以巢狀分流，key 同時是「子指令 + 參數簽章」，value 是實際送進 powershell 的模板：
-```json
-{
-    "variables": {
-        "ENVIRONMENT": "Development",
-        "EF_DB_CONTEXT": "CccDbContext"
-    },
-    "commands": {
-        "profile": "notepad $PROFILE.CurrentUserAllHosts",
-        "git": {
-            "uncommit ^0=1 ^1=--soft": "git reset HEAD~^0 ^1",
-            "user ^name ^email": "git config --local user.name ^name; git config --local user.email ^email",
-            "exclude ^0": "Add-Content .git/info/exclude ^0"
-        },
-        "ef": {
-            "roll ^0= ^1=$ENVIRONMENT": "dotnet ef database update ^0 --context $EF_DB_CONTEXT -- --environment ^1"
-        }
-    }
-}
-```
-參數可以用數字 `^0` 或具名 `^name`；不論哪種，呼叫時都依「在 key 簽章裡出現的順序」依序填入。
-
-對應的呼叫：
-```
-ccc git uncommit 3            => git reset HEAD~3 --soft
-ccc git uncommit 1 --hard     => git reset HEAD~1 --hard
-ccc git user Rick a@b.com     => git config --local user.name Rick; git config --local user.email a@b.com
-ccc git user                  => 報錯：Expected param(s): ^name ^email
-ccc git exclude               => 報錯：Expected param(s): ^0
-ccc ef roll                   => dotnet ef database update  --context CccDbContext -- --environment Development
-```
-
-### 兩個指令
-安裝後會註冊兩個系統層級指令，任何目錄都能用：
-- `ccc <command...>`：把對應的指令與參數送給 powershell，以隔離的 scope 執行。
-- `ccc-router`：管理用途。
-  - 安裝(在 clone 來的 repo 裡執行):
-    - `.\ccc-router install`：註冊 `ccc` 與 `ccc-router`。安裝後 clone 來的 repo 就可以刪了。
-    - `.\ccc-router install --beauty --vscode`：一併安裝美化器 VSCode 插件。
-  - 安裝後(任何目錄都能用):
-    - `ccc-router init`：把共用模板複製到當前目錄成為 cccrouter.json。
-    - `ccc-router template`：用記事本開啟共用模板 `~\.ccc\cccrouter.json` 編輯。
-    - `ccc-router status`：列出安裝狀態(ccc tool / vscode beautifier),並檢查 GitHub 上有沒有新版。
-    - `ccc-router upgrade`：直接從 GitHub 抓最新腳本覆蓋安裝(不需要 repo);已安裝美化器插件時一併更新。
-    - `ccc-router uninstall`：移除已註冊的指令,**並一併解除安裝 beautifier 插件**(加 `--stay-beauty` 可保留插件)。
-    - `ccc-router beauty install --vscode`：已裝 ccc-router、只想補裝美化器插件時用。
-    - `ccc-router beauty uninstall --vscode`：只解除安裝美化器插件,保留指令。
-    - `ccc-router --help`：印出可用指令。
 
 ### Quick Start
 Step 1 - Clone the repo.
@@ -103,7 +55,8 @@ Step 3 - 回到你的專案目錄跑 `ccc-router init`。
 就會覆蓋預設顏色設定，存檔後執行 **Developer: Reload Window** 即生效。
 
 > *Alternative*: 
-`Ctrl+Shift+P` → **Preferences: Open User Settings (JSON)** 找上述設定，可以編輯安裝插件時已寫入的顏色（使用者層級）
+-`Ctrl+Shift+P` → **CCC Router Syntax: Customize Colors** 將預設顏色設定寫入使用者層級 settings.json 供編輯。
+`Ctrl+Shift+P` → **CCC Router Syntax: Reset Colors** 移除使用者層級 settings.json 裡的顏色設定，恢復預設值。
 
 ### 未來計畫
 - 一個 prompt 讓 agent 從專案判斷常用的指令寫進 cccrouter.json & 一個 skill 告訴 agent 如何使用 ccc
