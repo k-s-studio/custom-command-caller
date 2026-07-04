@@ -6,6 +6,7 @@ ccc <command...> <optional positional args...>
 
 ### Quick Start
 Step 1 - Clone the repo.
+
 Step 2 - 在 repo 目錄使用 `.\ccc-router install` 註冊指令至系統層級。
   ```
   .\ccc-router install                  # 安裝 ccc 與 ccc-router
@@ -28,9 +29,7 @@ Step 3 - 回到你的專案目錄跑 `ccc-router init`。
 - **執行前回顯**：每次執行前印出 `> ...`，其中有設定在 variables 的 `$VAR` 會顯示成實際值，未設定的保留原樣。
 
 ### 美化器
-`editor\vscode-cccrouter-syntax` 是一個用於美化 cccrouter.json 編輯器的 vscode 插件。它一方面讓 ccc 的佔位符（`${var}`、`$var`、`^n`、簽章 `^n=default`）醒目，另一方面把 `commands` 裡的指令模板**當成 PowerShell 上色**——命令、關鍵字、`-旗標`、運算子、字串各有顏色，讀起來就像在 `.ps1` 裡。
-
-高亮由插件的 semantic tokens 提供，各片段有獨立的 token type：佔位符 `$VAR` / `${VAR}` → `cccPlaceholder`、`^key` → `cccPositional`、簽章預設值 `=default` → `cccDefault`；PowerShell 部分則有命令 `cccCommand`、關鍵字 `cccKeyword`、參數旗標 `cccParameter`、運算子 `cccOperator`、字串 `cccString`。
+`editor\vscode-cccrouter-syntax` 是一個用於美化 cccrouter.json 編輯器的 vscode 插件——把 `cccrouter.json` 當成 PowerShell 上色，同時讓 ccc 的佔位符（`${var}`、`$var`、`^n`、`^n=default`）醒目。
 
 #### 調整 VSCode 的語法顏色
 若要調整 cccrouter.json 的語法顏色，在 `/.vscode/settings.json` 加上:
