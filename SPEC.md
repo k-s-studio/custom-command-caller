@@ -149,7 +149,7 @@ ccc 永遠在 `cccrouter.json` 所在目錄（專案根目錄）執行。
 
 所以「限定在 repo 層」不是靠 runtime 偵測，而是**安裝後那一份壓根不帶 install**：install.ps1 不複製、router 沒有 install case、`upgrade` 下載清單與 `status` 健檢清單也都不含 install.ps1。從 repo 重跑 `.\ccc-router install` 仍會就地覆蓋升級（`ccc.ps1` 換新、補上 `ccc-router.*`，PATH 已存在那筆不變）。注意 `ccc init` / `ccc verify` 等舊子指令已移除（移到 `ccc-router`）。
 
-`status.ps1`：列出 `ccc tool`（`~/.ccc` 裡 install.ps1 該放的檔都在 → `healthy`，缺檔 → `corrupted`）與 `vscode beautifier`（即時 `code --list-extensions` 比對 `*cccrouter-syntax*`，只看裝沒裝、不管版號）。再 best-effort 打 GitHub `compare/<.base>...main`，**只有當 diff 動到工具本身（`scripts/` 或 `components/`）才**印 `Note: New version exists...`——README / SPEC / editor-only 的 commit 視為雜訊、不提示。網路或 API 失敗（含 4xx、timeout）就靜默略過；`.base` 不存在也不印。
+`status.ps1`：列出 `ccc tool`（`~/.ccc` 裡 install.ps1 該放的檔都在 → `healthy`，缺檔 → `corrupted`）與 `vscode beautifier`（即時 `code --list-extensions` 比對 `*cccrouter-syntax*`，只看裝沒裝、不管版號）。再 best-effort 打 GitHub `compare/<.base>...main`，讀回傳的 `files[]`（區間 `.base`→`main` 的累積淨變動），**只要任一 `filename` 以 `scripts/` 或 `components/` 開頭就視為工具有更新**、印 `Note: New version exists...`；否則（README / SPEC / editor-only 的 commit）視為雜訊、不提示。用 `files[]` 前綴比對而非 `ahead_by`，就是為了讓「只改文件」的 commit 不再誤報。網路或 API 失敗（含 4xx、timeout）就靜默略過；`.base` 不存在也不印。
 
 `upgrade.ps1`：從 `raw.githubusercontent.com/<repo>/main` 抓 6 個腳本（不含 repo 限定的 `install.ps1`）+ 模板，**先全部下載到 temp、成功才覆蓋** `~/.ccc`（任何一個 404/失敗就中止，不留半套）。為了不讓 upgrade 覆蓋到正在執行的自己，`ccc-router upgrade` 會先把 `~/.ccc/upgrade.ps1` 複製到 temp、再從 temp 那份執行；因此覆蓋 `~/.ccc` 裡的 `upgrade.ps1` / `ccc-router.ps1` 時，動到的都不是當前正在跑的那個檔。模板（`cccrouter.json`）是使用者資料，**只在不存在時才補**，不覆蓋。最後用 `commits/main` 的 sha 重寫 `.base`（一行 hash），並刪掉舊版的 `install.json`。**若偵測到已安裝美化器插件，會一併用最新 Release 重裝插件**（呼叫剛更新好的 `install-highlighter.ps1`），與 SPEC「如果已安裝美化器插件則一同更新」一致。
 
