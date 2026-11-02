@@ -7,6 +7,14 @@ param(
 
 $configFileName = "cccrouter.json"
 $installDir = "$env:USERPROFILE\.ccc"
+$Repo = "k-s-studio/custom-command-caller"
+
+# installs up to 7f65b23 kept the scripts in the PATH folder itself; the first upgrade from
+# one of those runs its old upgrader, which refreshes the scripts in place, and the next
+# 'ccc-router upgrade' moves them into lib\.
+if ($PSScriptRoot -eq $installDir -and $Command -ne "upgrade") {
+    Write-Host "Note: this install still uses the old layout. Run 'ccc-router upgrade' once more to finish moving it."
+}
 
 function Show-Usage {
     Write-Host "Usage: ccc-router <command>"
@@ -74,15 +82,17 @@ switch ($Command) {
     }
 
     "upgrade" {
-        $upgrader = Join-Path $PSScriptRoot "upgrade.ps1"
-        if (-not (Test-Path $upgrader)) {
-            Write-Host "upgrade.ps1 not found. Reinstall from the repo with '.\ccc-router install'."
+        # run the LATEST upgrader from GitHub main, not the installed copy: how an install is
+        # laid out, and how older layouts migrate, then ships with the upgrade itself. it runs
+        # from a temp file, so it never overwrites the very file it is executing.
+        $worker = Join-Path $env:TEMP ("ccc-upgrade-" + [guid]::NewGuid().ToString("N") + ".ps1")
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+        try {
+            Invoke-WebRequest -Uri "https://raw.githubusercontent.com/$Repo/main/scripts/upgrade.ps1" -OutFile $worker -Headers @{ 'User-Agent' = 'ccc-router' } -UseBasicParsing -ErrorAction Stop
+        } catch {
+            Write-Host "Failed to download the upgrader from GitHub: $($_.Exception.Message)"
             exit 1
         }
-        # run the upgrader from a temp copy so it never overwrites the very file it is
-        # executing while it refreshes the install dir.
-        $worker = Join-Path $env:TEMP ("ccc-upgrade-" + [guid]::NewGuid().ToString("N") + ".ps1")
-        Copy-Item $upgrader $worker -Force
         try {
             & $worker @Rest
             $code = $LASTEXITCODE

@@ -1,3 +1,3 @@
 @echo off
-rem Global 'ccc-router' wrapper. install.ps1 copies this into ~/.ccc; %~dp0 resolves ccc-router.ps1 beside it.
-powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0ccc-router.ps1" %*
+rem 'ccc-router' entry; the script is in lib\ (see SPEC).
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0lib\ccc-router.ps1" %* & call exit /b %%errorlevel%%

@@ -112,7 +112,7 @@ foreach ($var in $config.variables.PSObject.Properties) {
 } $resolved @($config.variables.PSObject.Properties)
 ```
 
-指令在子 scope 執行，`variables` 裡定義的變數注入成 PS 變數。字串插值（`"$(...)"`）與管線在 scriptblock 內完全正常運作。env var 只設在 ccc 這個短命 process，不會外洩到使用者 shell。PowerShell 是動態 scope，ccc.ps1 自己的 script 變數（`$config`、`$Tokens` 等）在指令裡仍讀得到，指令不要依賴或撞名。
+指令在子 scope 執行，`variables` 裡定義的變數注入成 PS 變數。字串插值（`"$(...)"`）與管線在 scriptblock 內完全正常運作。ccc 一定經過 `ccc.cmd` 在自己的 powershell 行程裡執行（見「安裝機制」的檔案配置），env var 只設在這個短命 process，不會外洩到使用者 shell。PowerShell 是動態 scope，ccc.ps1 自己的 script 變數（`$config`、`$Tokens` 等）在指令裡仍讀得到，指令不要依賴或撞名。指令結束後以 `exit $LASTEXITCODE` 交回最後一個原生程式的結束碼，`ccc.cmd` 再交給呼叫端，所以 `ccc build && ...` 判斷得出成敗。
 
 **一定要用 `&` 當一般陳述式呼叫，不能用 `InvokeWithContext` 這類 .NET 方法**：.NET 呼叫會把輸出收集成集合再回傳，PowerShell 因此把原生程式（node、dotnet、git…）的 stdout 重導向——(1) 指令結束前畫面上什麼都看不到；(2) Windows PowerShell 5.1 用主控台字碼頁（繁中 Windows 是 Big5）解讀收集到的 UTF-8 位元組，中文與框線字元變亂碼。以 `&` 陳述式呼叫時，原生程式的 stdout 直接接在主控台上：即時、不經解碼。（舊版用 `InvokeWithContext`，就有這兩個問題。）
 
@@ -139,8 +139,26 @@ ccc 永遠在 `cccrouter.json` 所在目錄（專案根目錄）執行。
 
 ### 安裝機制
 
+#### 檔案配置
+
+```
+~/.ccc/                  ← 加進 user PATH 的資料夾，只放兩個入口
+  ccc.cmd                → powershell -File "%~dp0lib\ccc.ps1"
+  ccc-router.cmd         → powershell -File "%~dp0lib\ccc-router.ps1"
+  cccrouter.json         ← 模板（使用者資料）
+  .base                  ← 安裝的 commit
+  lib/                   ← 所有腳本，不在 PATH 上
+    ccc.ps1  ccc-router.ps1  uninstall.ps1  install-highlighter.ps1  status.ps1  upgrade.ps1
+```
+
+**腳本不能放在 PATH 資料夾裡**：PowerShell 會把 PATH 資料夾裡的每個 `.ps1` 以檔名當指令，而且同名時 `.ps1` 優先於 `.cmd`。所以 `ccc.ps1` 若和 `ccc.cmd` 放在一起，在 PowerShell 打 `ccc` 會直接在使用者自己的 shell 行程裡跑 `ccc.ps1`（不經過 `ccc.cmd`），`variables` 匯出的 env var 就留在 shell 裡；`status` / `upgrade` / `uninstall` 也會變成任何目錄都打得到的全域指令。放進 `lib/` 後，PATH 上只剩兩個 `.cmd`，`ccc` 一律另開 powershell 行程。（7f65b23 以前的版本就是這種扁平配置，`ccc-router upgrade` 會遷移，見下方 upgrade。）
+
+wrapper 以 `& call exit /b %%errorlevel%%` 結尾：交回 powershell 的結束碼（`call` 讓 `errorlevel` 在執行當下才展開），並讓 cmd.exe 執行完就離開，不再讀後面的內容。cmd.exe 是邊執行邊讀批次檔的，upgrade 若替換了正在執行的 `ccc-router.cmd`，cmd.exe 會從原本的位置繼續讀新檔案；有了 `exit /b` 就讀不到。從扁平配置遷移的那一次，正在執行的是沒有 `exit /b` 的舊 wrapper，所以新 wrapper 要**比舊的短**（舊的 `ccc-router.cmd` 是 201 bytes），cmd.exe 回來時已經在檔尾。
+
+#### install
+
 `install.ps1` 是 **repo 限定的 bootstrap**，由 repo 根目錄的 `ccc-router.bat`（`.\ccc-router install`）直接呼叫，**本身不會被裝進 `~/.ccc`**：
-1. 把 `ccc.ps1`、`ccc-router.ps1`（及 `uninstall.ps1` / `install-highlighter.ps1` / `status.ps1` / `upgrade.ps1`，**不含 `install.ps1` 自己**）以及兩個現成 wrapper `scripts/ccc.cmd` / `scripts/ccc-router.cmd` 一起複製到 `~/.ccc/`。wrapper 用 `%~dp0` 解析旁邊的 `.ps1`，所以複製到哪都對、不需要在腳本裡 hardcode 內容。
+1. 把 `ccc.ps1`、`ccc-router.ps1`（及 `uninstall.ps1` / `install-highlighter.ps1` / `status.ps1` / `upgrade.ps1`，**不含 `install.ps1` 自己**）複製到 `~/.ccc/lib/`，兩個現成 wrapper `scripts/ccc.cmd` / `scripts/ccc-router.cmd` 複製到 `~/.ccc/`，並刪掉扁平配置留在 `~/.ccc/` 的舊腳本。wrapper 用 `%~dp0lib\` 解析腳本，所以複製到哪都對、不需要在腳本裡 hardcode 內容。
 2. 把 `components/cccrouter.json` 模板複製到 `~/.ccc/cccrouter.json`（給 `ccc-router init` 用）
 3. 寫 `~/.ccc/.base`（一行 commit hash，`git -C <repo> rev-parse HEAD`），給 `status` / `upgrade` 自我檢查。**只在抓得到真 commit 時才寫**；抓不到（如從已安裝副本重跑、非 git 來源）就保留舊 `.base`，不要蓋掉好的紀錄。順手刪掉舊版留下的 `install.json`。
 4. 把 `~/.ccc` 加進 user PATH
@@ -152,13 +170,19 @@ ccc 永遠在 `cccrouter.json` 所在目錄（專案根目錄）執行。
 
 **`install` 為什麼是 repo 限定**：repo 根目錄的 `ccc-router.bat` 和 install.ps1 寫進 `~/.ccc` 的 `ccc-router.cmd` 是**兩個不同的 wrapper**，各自指向不同邏輯——
 - repo 的 `ccc-router.bat`：只認 `install`，把它(連旗標)轉呼 `scripts/install.ps1`；其他子指令一律擋下並提示「裝完才有」。
-- `~/.ccc/ccc-router.cmd`：指向 `~/.ccc/ccc-router.ps1`，那支 router **根本沒有 `install` case**（只有 init / template / status / upgrade / uninstall / beauty / --help）。打 `ccc-router install` 只會印一行「install 要在 repo 跑、更新請用 upgrade」就結束。
+- `~/.ccc/ccc-router.cmd`：指向 `~/.ccc/lib/ccc-router.ps1`，那支 router **根本沒有 `install` case**（只有 init / template / status / upgrade / uninstall / beauty / --help）。打 `ccc-router install` 只會印一行「install 要在 repo 跑、更新請用 upgrade」就結束。
 
-所以「限定在 repo 層」不是靠 runtime 偵測，而是**安裝後那一份壓根不帶 install**：install.ps1 不複製、router 沒有 install case、`upgrade` 下載清單與 `status` 健檢清單也都不含 install.ps1。從 repo 重跑 `.\ccc-router install` 仍會就地覆蓋升級（`ccc.ps1` 換新、補上 `ccc-router.*`，PATH 已存在那筆不變）。注意 `ccc init` / `ccc verify` 等舊子指令已移除（移到 `ccc-router`）。
+所以「限定在 repo 層」不是靠 runtime 偵測，而是**安裝後那一份壓根不帶 install**：install.ps1 不複製、router 沒有 install case、`upgrade` 下載清單與 `status` 健檢清單也都不含 install.ps1。從 repo 重跑 `.\ccc-router install` 仍會就地覆蓋升級（腳本與 wrapper 換新、扁平配置一併遷移，PATH 已存在那筆不變）。注意 `ccc init` / `ccc verify` 等舊子指令已移除（移到 `ccc-router`）。
 
-`status.ps1`：列出 `ccc tool`（`~/.ccc` 裡 install.ps1 該放的檔都在 → `healthy`，缺檔 → `corrupted`）與 `vscode beautifier`（即時 `code --list-extensions` 比對 `*cccrouter-syntax*`，只看裝沒裝、不管版號）。再 best-effort 打 GitHub `compare/<.base>...main`，讀回傳的 `files[]`（區間 `.base`→`main` 的累積淨變動），**只要任一 `filename` 以 `scripts/` 或 `components/` 開頭就視為工具有更新**、印 `Note: New version exists...`；否則（README / SPEC / editor-only 的 commit）視為雜訊、不提示。用 `files[]` 前綴比對而非 `ahead_by`，就是為了讓「只改文件」的 commit 不再誤報。網路或 API 失敗（含 4xx、timeout）就靜默略過；`.base` 不存在也不印。
+#### status / upgrade / uninstall
 
-`upgrade.ps1`：從 `raw.githubusercontent.com/<repo>/main` 抓 6 個腳本（不含 repo 限定的 `install.ps1`）+ 模板，**先全部下載到 temp、成功才覆蓋** `~/.ccc`（任何一個 404/失敗就中止，不留半套）。為了不讓 upgrade 覆蓋到正在執行的自己，`ccc-router upgrade` 會先把 `~/.ccc/upgrade.ps1` 複製到 temp、再從 temp 那份執行；因此覆蓋 `~/.ccc` 裡的 `upgrade.ps1` / `ccc-router.ps1` 時，動到的都不是當前正在跑的那個檔。模板（`cccrouter.json`）是使用者資料，**只在不存在時才補**，不覆蓋。最後用 `commits/main` 的 sha 重寫 `.base`（一行 hash），並刪掉舊版的 `install.json`。**若偵測到已安裝美化器插件，會一併用最新 Release 重裝插件**（呼叫剛更新好的 `install-highlighter.ps1`），與 SPEC「如果已安裝美化器插件則一同更新」一致。
+`status.ps1`：列出 `ccc tool`（`~/.ccc` 裡 install.ps1 該放的檔都在，含 `lib/` 裡的腳本 → `healthy`，缺檔 → `corrupted`）與 `vscode beautifier`（即時 `code --list-extensions` 比對 `*cccrouter-syntax*`，只看裝沒裝、不管版號）。再 best-effort 打 GitHub `compare/<.base>...main`，讀回傳的 `files[]`（區間 `.base`→`main` 的累積淨變動），**只要任一 `filename` 以 `scripts/` 或 `components/` 開頭就視為工具有更新**、印 `Note: New version exists...`；否則（README / SPEC / editor-only 的 commit）視為雜訊、不提示。用 `files[]` 前綴比對而非 `ahead_by`，就是為了讓「只改文件」的 commit 不再誤報。網路或 API 失敗（含 4xx、timeout）就靜默略過；`.base` 不存在也不印。
+
+`ccc-router upgrade`：**從 GitHub main 下載最新的 `scripts/upgrade.ps1` 到 temp 再執行**，不用安裝裡的那份。所以「安裝要長什麼樣、舊配置怎麼遷移」永遠由最新的 upgrader 決定，改配置時不必先讓使用者拿到新的 upgrader。從 temp 執行也確保覆蓋 `~/.ccc` 時動到的不是正在跑的那個檔。
+
+`upgrade.ps1`：從 `raw.githubusercontent.com/<repo>/main` 抓 6 個腳本、2 個 wrapper（不含 repo 限定的 `install.ps1`）+ 模板，**先全部下載到 temp、成功才覆蓋** `~/.ccc`（任何一個 404/失敗就中止，不留半套）。腳本寫進 `lib/`、wrapper 寫進根目錄；根目錄若還有扁平配置的舊腳本就刪掉（遷移）。
+
+從扁平配置升級要**兩次** `ccc-router upgrade`：第一次跑的是舊安裝裡的 `ccc-router.ps1`，它執行的是安裝裡的舊 `upgrade.ps1`，只會就地換新扁平的腳本；第二次跑的就是新的 `ccc-router.ps1`，它下載最新的 upgrader 完成遷移。新的 `ccc-router.ps1` 若發現自己還在扁平配置（`$PSScriptRoot` 就是 `~/.ccc`），執行其他子指令時會提示再跑一次 upgrade。所以 repo 裡的腳本路徑（`scripts/*.ps1`）不能改：舊 upgrader 照舊路徑下載，404 就會中止。模板（`cccrouter.json`）是使用者資料，**只在不存在時才補**，不覆蓋。最後用 `commits/main` 的 sha 重寫 `.base`（一行 hash），並刪掉舊版的 `install.json`。**若偵測到已安裝美化器插件，會一併用最新 Release 重裝插件**（呼叫剛更新好的 `install-highlighter.ps1`），與 SPEC「如果已安裝美化器插件則一同更新」一致。
 
 `uninstall.ps1`：預設**連 beautifier 插件一起移除**（`code --uninstall-extension`，id 用即時 `code --list-extensions` 比對 `*cccrouter-syntax*` 拿，不靠 manifest）+ 從 PATH 移除 `~/.ccc` 並刪資料夾。`--stay-beauty` 留插件只移指令；`--beauty`（即 `ccc-router beauty uninstall` 走的內部路徑）只移插件留指令。當 `ccc-router uninstall` 是從已安裝的副本執行時，自身的 `ccc-router.cmd` 被 cmd.exe 鎖住，會 fallback 成 detached cmd 等本 terminal 釋放後再刪。
 

@@ -190,3 +190,6 @@ foreach ($var in $config.variables.PSObject.Properties) {
     Remove-Variable __cccVariable, __cccVariables -ErrorAction SilentlyContinue
     & ([scriptblock]::Create($__cccCommand))
 } $resolved @($config.variables.PSObject.Properties)
+
+# hand the command's exit code on (ccc.cmd passes it to the caller), so 'ccc build && ...' works
+exit $LASTEXITCODE

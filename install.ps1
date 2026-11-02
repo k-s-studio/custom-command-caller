@@ -15,21 +15,29 @@ if ($Rest.Count -ge 1 -and $Rest[0] -ieq "install") {
 }
 
 # create install directory (or upgrade an existing install in place)
-if (Test-Path (Join-Path $installDir "ccc.ps1")) {
-    Write-Host "Existing install found at $installDir - upgrading in place (overwrites ccc.ps1, adds ccc-router)."
+$libDir = Join-Path $installDir "lib"
+if (Test-Path (Join-Path $installDir "ccc.cmd")) {
+    Write-Host "Existing install found at $installDir - upgrading in place."
 }
-if (-not (Test-Path $installDir)) {
-    New-Item -ItemType Directory -Path $installDir | Out-Null
-}
+New-Item -ItemType Directory -Force -Path $libDir | Out-Null
 
-# copy everything the global commands rely on: the .ps1 scripts plus the two .cmd
-# wrappers (ccc.cmd / ccc-router.cmd) shipped in scripts/. their %~dp0 makes them resolve
-# the .ps1 beside themselves, so they work once copied here. install.ps1 itself is the
-# repo-only bootstrap (run via the repo's ccc-router.bat) and is deliberately NOT shipped —
-# once installed you update with 'ccc-router upgrade', never a self-invoked install.
-foreach ($file in @("ccc.ps1", "ccc-router.ps1", "uninstall.ps1", "install-highlighter.ps1", "status.ps1", "upgrade.ps1", "ccc.cmd", "ccc-router.cmd")) {
-    $src = Join-Path $scriptDir $file
-    if (Test-Path $src) { Copy-Item $src (Join-Path $installDir $file) -Force }
+# copy everything the global commands rely on: the .ps1 scripts go to lib\ and the two .cmd
+# wrappers (ccc.cmd / ccc-router.cmd) shipped in scripts/ go to the install dir, the only
+# folder on PATH; their %~dp0lib\ resolves the scripts. the scripts stay out of the PATH
+# folder because PowerShell runs any .ps1 there by its bare name, in the caller's own
+# process. install.ps1 itself is the repo-only bootstrap (run via the repo's
+# ccc-router.bat) and is deliberately NOT shipped — once installed you update with
+# 'ccc-router upgrade', never a self-invoked install.
+$libScripts = @("ccc.ps1", "ccc-router.ps1", "uninstall.ps1", "install-highlighter.ps1", "status.ps1", "upgrade.ps1")
+foreach ($file in $libScripts) {
+    Copy-Item (Join-Path $scriptDir $file) (Join-Path $libDir $file) -Force
+}
+foreach ($file in @("ccc.cmd", "ccc-router.cmd")) {
+    Copy-Item (Join-Path $scriptDir $file) (Join-Path $installDir $file) -Force
+}
+# installs up to 7f65b23 kept the scripts beside the wrappers; remove those copies
+foreach ($file in $libScripts) {
+    Remove-Item (Join-Path $installDir $file) -Force -ErrorAction SilentlyContinue
 }
 
 # install the cccrouter.json template that 'ccc-router init' clones into a project.
