@@ -1,4 +1,8 @@
+# 'ccc-router upgrade' downloads THIS file from GitHub main and runs it (see the 'upgrade'
+# case in ccc-router.ps1), so the latest upgrader always does the upgrade: changes to the
+# install layout, and the migration from older layouts, ship with the upgrade itself.
 $installDir     = "$env:USERPROFILE\.ccc"
+$libDir         = Join-Path $installDir "lib"
 $configFileName = "cccrouter.json"
 $Repo           = "k-s-studio/custom-command-caller"
 $rawBase        = "https://raw.githubusercontent.com/$Repo/main"
@@ -28,16 +32,15 @@ function Invoke-GitHubApi([string]$url) {
     }
 }
 
-# scripts to refresh: <installed name> <- <path in repo>. install.ps1 is the repo-only
-# bootstrap and is never installed, so it is not refreshed here either.
-$scripts = [ordered]@{
-    "ccc.ps1"                 = "scripts/ccc.ps1"
-    "ccc-router.ps1"          = "scripts/ccc-router.ps1"
-    "uninstall.ps1"           = "scripts/uninstall.ps1"
-    "install-highlighter.ps1" = "scripts/install-highlighter.ps1"
-    "status.ps1"              = "scripts/status.ps1"
-    "upgrade.ps1"             = "scripts/upgrade.ps1"
+function Get-RepoFile([string]$path, [string]$dest) {
+    Invoke-WebRequest -Uri "$rawBase/$path" -OutFile $dest -Headers $headers -UseBasicParsing -ErrorAction Stop
 }
+
+# the scripts live in lib\, out of the PATH folder (PowerShell runs any .ps1 in a PATH folder
+# by its bare name, in the caller's own process); only the two .cmd entries sit in the root.
+# install.ps1 is the repo-only bootstrap and is never installed, so it is not refreshed here.
+$libScripts = @("ccc.ps1", "ccc-router.ps1", "uninstall.ps1", "install-highlighter.ps1", "status.ps1", "upgrade.ps1")
+$wrappers   = @("ccc.cmd", "ccc-router.cmd")
 
 Write-Host "Checking latest version on GitHub ($Repo main) ..."
 try {
@@ -53,23 +56,29 @@ $tmp = Join-Path $env:TEMP ("ccc-upgrade-" + [guid]::NewGuid().ToString("N"))
 New-Item -ItemType Directory -Path $tmp | Out-Null
 $ProgressPreference = 'SilentlyContinue'
 try {
-    foreach ($name in $scripts.Keys) {
-        Invoke-WebRequest -Uri "$rawBase/$($scripts[$name])" -OutFile (Join-Path $tmp $name) -Headers $headers -ErrorAction Stop
-    }
+    foreach ($name in $libScripts + $wrappers) { Get-RepoFile "scripts/$name" (Join-Path $tmp $name) }
     # the template too, but it is user-editable — only applied if missing (see below)
-    Invoke-WebRequest -Uri "$rawBase/components/$configFileName" -OutFile (Join-Path $tmp $configFileName) -Headers $headers -ErrorAction Stop
+    Get-RepoFile "components/$configFileName" (Join-Path $tmp $configFileName)
 } catch {
     Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
     Write-Host "Download failed: $($_.Exception.Message)"
     exit 1
 }
 
-# commit the refreshed scripts. this script is being run from a temp copy (see the
-# 'upgrade' case in ccc-router.ps1), so overwriting the install dir's upgrade.ps1 /
-# ccc-router.ps1 here is never overwriting the file we are currently executing.
-foreach ($name in $scripts.Keys) {
-    Copy-Item (Join-Path $tmp $name) (Join-Path $installDir $name) -Force
-}
+# migrate from the flat layout (up to 7f65b23): the scripts sat beside the wrappers in the
+# PATH folder, so in PowerShell 'ccc' ran ccc.ps1 in the user's own shell (leaking the
+# variables' env vars into it) and 'status' / 'upgrade' / 'uninstall' were global commands.
+$flat = @($libScripts | Where-Object { Test-Path (Join-Path $installDir $_) })
+
+# commit the refreshed files. this upgrader runs from a temp file, and the wrapper that may be
+# running (ccc-router.cmd, when called from cmd.exe) is read by cmd.exe as it goes: the new
+# wrappers are no longer than the old ones and end with 'exit /b', so cmd.exe reads nothing
+# more from the replaced file.
+New-Item -ItemType Directory -Force -Path $libDir | Out-Null
+foreach ($name in $libScripts) { Copy-Item (Join-Path $tmp $name) (Join-Path $libDir $name) -Force }
+foreach ($name in $wrappers) { Copy-Item (Join-Path $tmp $name) (Join-Path $installDir $name) -Force }
+foreach ($name in $flat) { Remove-Item (Join-Path $installDir $name) -Force -ErrorAction SilentlyContinue }
+if ($flat.Count -gt 0) { Write-Host "Moved the scripts into $libDir (they no longer act as PowerShell commands)." }
 
 # the template is user data ('ccc-router template' / 'init') — never clobber an
 # existing one; only seed it if the user somehow has none.
@@ -89,7 +98,7 @@ if (Get-Command code -ErrorAction SilentlyContinue) {
     $ext = @(& code --list-extensions 2>$null | Where-Object { $_ -like "*cccrouter-syntax*" })
     if ($ext.Count -gt 0) {
         Write-Host "Updating the beautifier extension ..."
-        & (Join-Path $installDir "install-highlighter.ps1") install --vscode
+        & (Join-Path $libDir "install-highlighter.ps1") install --vscode
     }
 }
 

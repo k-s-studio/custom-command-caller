@@ -1,3 +1,3 @@
 @echo off
-rem Global 'ccc' wrapper. install.ps1 copies this into ~/.ccc; %~dp0 resolves ccc.ps1 beside it.
-powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0ccc.ps1" %*
+rem 'ccc' entry; the script is in lib\ (see SPEC).
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0lib\ccc.ps1" %* & call exit /b %%errorlevel%%

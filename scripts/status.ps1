@@ -6,8 +6,8 @@ $Repo           = "k-s-studio/custom-command-caller"
 # ── ccc tool: are all the files install.ps1 places still present? ──
 # (install.ps1 itself is the repo-only bootstrap and is never installed here.)
 $required = @(
-    "ccc.ps1", "ccc-router.ps1", "uninstall.ps1",
-    "install-highlighter.ps1", "status.ps1", "upgrade.ps1",
+    "lib\ccc.ps1", "lib\ccc-router.ps1", "lib\uninstall.ps1",
+    "lib\install-highlighter.ps1", "lib\status.ps1", "lib\upgrade.ps1",
     "ccc.cmd", "ccc-router.cmd", $configFileName
 )
 $missing = @($required | Where-Object { -not (Test-Path (Join-Path $installDir $_)) })
