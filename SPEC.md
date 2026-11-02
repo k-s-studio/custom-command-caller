@@ -46,7 +46,7 @@ ccc <command...> [args...]
   ↓
 回顯 > <實際指令>（設定在 variables 的 $VAR 會顯示成實際值）
   ↓
-以隔離 scope 執行 scriptblock
+以子 scope 執行 scriptblock（原生程式的輸出直接接在主控台上）
 ```
 
 ### 路由與簽章
@@ -98,18 +98,25 @@ PS: C:\> ccc test
 2
 ```
 
-### 執行隔離 scope
+### 執行 scope
 
 ```powershell
-$variables = [System.Collections.Generic.List[psvariable]]::new()
 foreach ($var in $config.variables.PSObject.Properties) {
-    $variables.Add([psvariable]::new($var.Name, $var.Value))
     [Environment]::SetEnvironmentVariable($var.Name, $var.Value, "Process")
 }
-[scriptblock]::Create($resolved).InvokeWithContext($null, $variables, $null)
+& {
+    param($__cccCommand, $__cccVariables)
+    foreach ($__cccVariable in $__cccVariables) { Set-Variable -Name $__cccVariable.Name -Value $__cccVariable.Value }
+    Remove-Variable __cccVariable, __cccVariables -ErrorAction SilentlyContinue
+    & ([scriptblock]::Create($__cccCommand))
+} $resolved @($config.variables.PSObject.Properties)
 ```
 
-scriptblock 執行時只注入 `variables` 裡定義的變數，不繼承 ccc 本身的 PS 狀態。字串插值（`"$(...)"`）與管線在 scriptblock 內完全正常運作。env var 只設在 ccc 這個短命 process，不會外洩到使用者 shell。
+指令在子 scope 執行，`variables` 裡定義的變數注入成 PS 變數。字串插值（`"$(...)"`）與管線在 scriptblock 內完全正常運作。env var 只設在 ccc 這個短命 process，不會外洩到使用者 shell。PowerShell 是動態 scope，ccc.ps1 自己的 script 變數（`$config`、`$Tokens` 等）在指令裡仍讀得到，指令不要依賴或撞名。
+
+**一定要用 `&` 當一般陳述式呼叫，不能用 `InvokeWithContext` 這類 .NET 方法**：.NET 呼叫會把輸出收集成集合再回傳，PowerShell 因此把原生程式（node、dotnet、git…）的 stdout 重導向——(1) 指令結束前畫面上什麼都看不到；(2) Windows PowerShell 5.1 用主控台字碼頁（繁中 Windows 是 Big5）解讀收集到的 UTF-8 位元組，中文與框線字元變亂碼。以 `&` 陳述式呼叫時，原生程式的 stdout 直接接在主控台上：即時、不經解碼。（舊版用 `InvokeWithContext`，就有這兩個問題。）
+
+`cccrouter.json` 以 `Get-Content -Encoding UTF8` 讀取：5.1 讀沒有 BOM 的檔案預設用 ANSI 字碼頁，設定檔裡的中文會壞掉。
 
 ### 參數語法
 

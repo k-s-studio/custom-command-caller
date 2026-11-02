@@ -12,7 +12,9 @@ function Get-Config {
         exit 1
     }
     try {
-        return Get-Content $configPath -Raw | ConvertFrom-Json
+        # Windows PowerShell 5.1 reads a BOM-less file as the ANSI code page (Big5 on zh-TW),
+        # mangling non-ASCII text in the config; read it as UTF-8 explicitly.
+        return Get-Content $configPath -Raw -Encoding UTF8 | ConvertFrom-Json
     } catch {
         Write-Host "Invalid cccrouter.json: $_"
         exit 1
@@ -168,14 +170,23 @@ if ($argTokens.Count -gt $consumed) {
 # echo what we hand to PowerShell, with configured $VAR resolved to real values
 Write-CommandEcho (Expand-ConfiguredVariables $resolved $config.variables)
 
-# run in an isolated scope seeded only with the configured variables, so PowerShell
-# expands $VAR / ${VAR} natively (and unconfigured globals like $PROFILE still work).
-# also export each variable as a process env var, so child processes spawned by the
-# command (e.g. dotnet/EF reading the connection string from $env:...) inherit them.
+# export each variable as a process env var, so child processes spawned by the command
+# (e.g. dotnet/EF reading the connection string from $env:...) inherit them.
 # ccc runs as its own short-lived process, so these never leak into the user's shell.
-$variables = [System.Collections.Generic.List[psvariable]]::new()
 foreach ($var in $config.variables.PSObject.Properties) {
-    $variables.Add([psvariable]::new($var.Name, $var.Value))
     [Environment]::SetEnvironmentVariable($var.Name, $var.Value, "Process")
 }
-[scriptblock]::Create($resolved).InvokeWithContext($null, $variables, $null)
+
+# run in a child scope seeded with the configured variables, so PowerShell expands
+# $VAR / ${VAR} natively (and unconfigured globals like $PROFILE still work).
+# invoke it with '&' as a plain statement, never through a .NET call such as
+# ScriptBlock.InvokeWithContext: those collect the output, so native commands get
+# their stdout redirected: nothing shows until the command ends, and Windows
+# PowerShell decodes the captured UTF-8 bytes with the console code page (mojibake).
+# a plain '&' statement leaves native stdout on the console: live and undecoded.
+& {
+    param($__cccCommand, $__cccVariables)
+    foreach ($__cccVariable in $__cccVariables) { Set-Variable -Name $__cccVariable.Name -Value $__cccVariable.Value }
+    Remove-Variable __cccVariable, __cccVariables -ErrorAction SilentlyContinue
+    & ([scriptblock]::Create($__cccCommand))
+} $resolved @($config.variables.PSObject.Properties)
